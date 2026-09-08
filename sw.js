@@ -1,6 +1,6 @@
-const CACHE = 'toeic-30day-v4'
+const CACHE = 'toeic-30day-v5'
 const CORE = [
-  '/', '/index.html', '/app.js', '/style.css', '/manifest.webmanifest', '/icon.svg',
+  '/', '/index.html', '/app.js', '/style.css', '/icons.css', '/manifest.webmanifest', '/icon.svg',
   '/data/words-01-03.json', '/data/words-04-06.json', '/data/words-07-09.json',
   '/data/words-10-12.json', '/data/words-13-15.json', '/data/words-16-18.json',
   '/data/words-19-21.json', '/data/words-22-24.json', '/data/words-25-27.json',
