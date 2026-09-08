@@ -166,16 +166,32 @@ createApp({
       load()
       try {
         const dataFiles = [
-          '/data/words-01-05.json',
-          '/data/words-06-10.json',
-          '/data/words-11-15.json',
-          '/data/words-16-20.json',
-          '/data/words-21-25.json',
-          '/data/words-26-30.json'
+          '/data/words-01-03.json',
+          '/data/words-04-06.json',
+          '/data/words-07-09.json',
+          '/data/words-10-12.json',
+          '/data/words-13-15.json',
+          '/data/words-16-18.json',
+          '/data/words-19-21.json',
+          '/data/words-22-24.json',
+          '/data/words-25-27.json',
+          '/data/words-28-30.json'
         ]
         const responses = await Promise.all(dataFiles.map(path => fetch(path)))
         if (responses.some(response => !response.ok)) throw new Error('단어 데이터를 불러오지 못했습니다.')
-        words.value = (await Promise.all(responses.map(response => response.json()))).flat()
+        const bundles = (await Promise.all(responses.map(response => response.json()))).flat()
+        let id = 1
+        words.value = bundles.flatMap(group =>
+          group.words.map(([word, meaning], index) => ({
+            id: id++,
+            day: group.day,
+            number: index + 1,
+            topic: group.topic,
+            word,
+            meaning
+          }))
+        )
+        if (words.value.length !== 2078) throw new Error(`단어 수 검증 실패: ${words.value.length}`)
       } catch (error) {
         console.error(error)
         alert('단어 데이터를 불러오지 못했습니다. 인터넷 연결 후 새로고침해 주세요.')
