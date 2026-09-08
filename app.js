@@ -3,7 +3,10 @@ const { createApp, computed, nextTick, onMounted, ref, watch } = Vue
 createApp({
   setup() {
     const STORAGE_KEY = 'toeic-30day-progress-v2'
-    const SETTINGS_KEY = 'toeic-30day-settings-v3'
+    const SETTINGS_KEY = 'toeic-30day-settings-v4'
+    const UI_KEY = 'toeic-30day-ui-v1'
+    const VALID_VIEWS = ['home', 'study', 'quiz', 'review', 'search']
+
     const words = ref([])
     const activeView = ref('home')
     const selectedDay = ref(1)
@@ -21,9 +24,8 @@ createApp({
     const ready = ref(false)
 
     let sequenceId = 0
-    let autoTimer = null
-    let keepAliveAudio = null
-    let keepAliveUrl = ''
+    let autoAudio = null
+    let restoredUi = null
 
     const state = ref({ status: {}, wrong: [], lastDay: 1, lastIndex: 0 })
 
@@ -51,6 +53,22 @@ createApp({
       return { known, total: list.length, percent: list.length ? Math.round(known / list.length * 100) : 0 }
     }
 
+    function saveUi() {
+      if (!ready.value) return
+      const ui = {
+        activeView: activeView.value,
+        selectedDay: selectedDay.value,
+        currentIndex: currentIndex.value,
+        searchText: searchText.value,
+        quiz: quiz.value,
+        quizAnswer: quizAnswer.value,
+        quizFinished: quizFinished.value
+      }
+      localStorage.setItem(UI_KEY, JSON.stringify(ui))
+      const hash = `#${activeView.value}`
+      if (location.hash !== hash) history.replaceState(null, '', `${location.pathname}${location.search}${hash}`)
+    }
+
     function save() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state.value))
       localStorage.setItem(SETTINGS_KEY, JSON.stringify({
@@ -59,6 +77,7 @@ createApp({
         speechRate: speechRate.value,
         koreanRate: koreanRate.value
       }))
+      saveUi()
     }
 
     function load() {
@@ -72,110 +91,16 @@ createApp({
           if (typeof settings.speechRate === 'number') speechRate.value = settings.speechRate
           if (typeof settings.koreanRate === 'number') koreanRate.value = settings.koreanRate
         }
-      } catch (_) {}
-    }
-
-    function clearAutoTimer() {
-      if (autoTimer) {
-        clearTimeout(autoTimer)
-        autoTimer = null
-      }
-    }
-
-    function makeKeepAliveWav() {
-      const sampleRate = 8000
-      const seconds = 2
-      const samples = sampleRate * seconds
-      const buffer = new ArrayBuffer(44 + samples * 2)
-      const view = new DataView(buffer)
-      const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)) }
-      write(0, 'RIFF')
-      view.setUint32(4, 36 + samples * 2, true)
-      write(8, 'WAVE')
-      write(12, 'fmt ')
-      view.setUint32(16, 16, true)
-      view.setUint16(20, 1, true)
-      view.setUint16(22, 1, true)
-      view.setUint32(24, sampleRate, true)
-      view.setUint32(28, sampleRate * 2, true)
-      view.setUint16(32, 2, true)
-      view.setUint16(34, 16, true)
-      write(36, 'data')
-      view.setUint32(40, samples * 2, true)
-      for (let i = 0; i < samples; i++) view.setInt16(44 + i * 2, i % 1600 === 0 ? 1 : 0, true)
-      return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }))
-    }
-
-    function ensureKeepAliveAudio() {
-      if (keepAliveAudio) return keepAliveAudio
-      keepAliveUrl = makeKeepAliveWav()
-      keepAliveAudio = document.createElement('audio')
-      keepAliveAudio.src = keepAliveUrl
-      keepAliveAudio.loop = true
-      keepAliveAudio.preload = 'auto'
-      keepAliveAudio.playsInline = true
-      keepAliveAudio.setAttribute('aria-hidden', 'true')
-      keepAliveAudio.style.position = 'fixed'
-      keepAliveAudio.style.width = '1px'
-      keepAliveAudio.style.height = '1px'
-      keepAliveAudio.style.opacity = '0.001'
-      keepAliveAudio.style.pointerEvents = 'none'
-      keepAliveAudio.style.left = '-9999px'
-      document.body.appendChild(keepAliveAudio)
-      return keepAliveAudio
-    }
-
-    function setMediaPlaybackState(value) {
-      try {
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = value
-      } catch (_) {}
-    }
-
-    function updateMediaMetadata() {
-      if (!('mediaSession' in navigator) || !currentWord.value) return
-      try {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: currentWord.value.word,
-          artist: currentWord.value.meaning,
-          album: `TOEIC DAY ${selectedDay.value} · ${currentIndex.value + 1}/${dayWords.value.length}`
-        })
-      } catch (_) {}
-    }
-
-    function startBackgroundCarrier() {
-      const audio = ensureKeepAliveAudio()
-      try {
-        if ('audioSession' in navigator && navigator.audioSession) navigator.audioSession.type = 'playback'
-      } catch (_) {}
-      audio.play().catch(() => {})
-      updateMediaMetadata()
-      setMediaPlaybackState('playing')
-    }
-
-    function stopBackgroundCarrier() {
-      if (keepAliveAudio) {
-        try { keepAliveAudio.pause() } catch (_) {}
-      }
-      setMediaPlaybackState('paused')
-    }
-
-    function setupMediaSession() {
-      if (!('mediaSession' in navigator)) return
-      const setHandler = (name, handler) => {
-        try { navigator.mediaSession.setActionHandler(name, handler) } catch (_) {}
-      }
-      setHandler('play', () => {
-        if (activeView.value !== 'study') return
-        if (!autoPlay.value) {
-          autoPlay.value = true
-          startBackgroundCarrier()
-          runAutoSequence()
+        restoredUi = JSON.parse(localStorage.getItem(UI_KEY) || 'null')
+        if (restoredUi) {
+          if (typeof restoredUi.searchText === 'string') searchText.value = restoredUi.searchText
+          if (restoredUi.quiz) quiz.value = restoredUi.quiz
+          quizAnswer.value = restoredUi.quizAnswer ?? null
+          quizFinished.value = Boolean(restoredUi.quizFinished)
         }
-      })
-      setHandler('pause', () => cancelSequence(false))
-      setHandler('nexttrack', () => move(1))
-      setHandler('previoustrack', () => move(-1))
-      setHandler('stop', () => cancelSequence(false))
+      } catch (_) {
+        restoredUi = null
+      }
     }
 
     function pickVoice(lang) {
@@ -211,24 +136,87 @@ createApp({
       window.speechSynthesis.speak(utter)
     }
 
-    function scheduleAuto(delay, token, callback) {
-      if (!autoPlay.value || token !== sequenceId) return
-      if (document.hidden) {
-        callback()
-        return
+    function ensureAutoAudio() {
+      if (autoAudio) return autoAudio
+      autoAudio = document.createElement('audio')
+      autoAudio.preload = 'auto'
+      autoAudio.playsInline = true
+      autoAudio.setAttribute('aria-hidden', 'true')
+      autoAudio.style.position = 'fixed'
+      autoAudio.style.width = '1px'
+      autoAudio.style.height = '1px'
+      autoAudio.style.opacity = '0.001'
+      autoAudio.style.pointerEvents = 'none'
+      autoAudio.style.left = '-9999px'
+      document.body.appendChild(autoAudio)
+      return autoAudio
+    }
+
+    function remoteTtsUrl(text, lang) {
+      const q = String(text || '').slice(0, 190)
+      const tl = lang.toLowerCase().startsWith('ko') ? 'ko-KR' : 'en-US'
+      return `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=${encodeURIComponent(tl)}&q=${encodeURIComponent(q)}`
+    }
+
+    function setMediaPlaybackState(value) {
+      try {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = value
+      } catch (_) {}
+    }
+
+    function updateMediaMetadata() {
+      if (!('mediaSession' in navigator) || !currentWord.value) return
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentWord.value.word,
+          artist: currentWord.value.meaning,
+          album: `TOEIC DAY ${selectedDay.value} · ${currentIndex.value + 1}/${dayWords.value.length}`
+        })
+      } catch (_) {}
+    }
+
+    function stopAutoAudio() {
+      if (!autoAudio) return
+      autoAudio.onended = null
+      autoAudio.onerror = null
+      try { autoAudio.pause() } catch (_) {}
+      try { autoAudio.removeAttribute('src'); autoAudio.load() } catch (_) {}
+    }
+
+    function playMediaTts(text, lang, rate, token, onDone) {
+      if (!autoPlay.value || token !== sequenceId || !text) return
+      const audio = ensureAutoAudio()
+      audio.onended = null
+      audio.onerror = null
+      audio.src = remoteTtsUrl(text, lang)
+      audio.playbackRate = Math.max(0.65, Math.min(1.3, Number(rate) || 1))
+      try { audio.preservesPitch = true } catch (_) {}
+
+      let completed = false
+      const done = () => {
+        if (completed) return
+        completed = true
+        if (autoPlay.value && token === sequenceId && onDone) onDone()
       }
-      autoTimer = setTimeout(() => {
-        if (autoPlay.value && token === sequenceId) callback()
-      }, delay)
+      audio.onended = done
+      audio.onerror = () => {
+        if (!autoPlay.value || token !== sequenceId) return
+        speakText(text, lang, rate, done, false)
+      }
+      const promise = audio.play()
+      if (promise?.catch) promise.catch(() => {
+        if (!autoPlay.value || token !== sequenceId) return
+        speakText(text, lang, rate, done, false)
+      })
     }
 
     function cancelSequence(keepAutoPlay = false) {
       sequenceId += 1
-      clearAutoTimer()
+      stopAutoAudio()
       if ('speechSynthesis' in window) window.speechSynthesis.cancel()
       if (!keepAutoPlay) {
         autoPlay.value = false
-        stopBackgroundCarrier()
+        setMediaPlaybackState('paused')
       }
     }
 
@@ -242,34 +230,34 @@ createApp({
       speakText(text, 'ko-KR', koreanRate.value)
     }
 
+    function finishAutoSequence() {
+      autoPlay.value = false
+      stopAutoAudio()
+      setMediaPlaybackState('paused')
+      saveUi()
+    }
+
     function runAutoSequence() {
       if (!autoPlay.value || activeView.value !== 'study' || !currentWord.value) return
       cancelSequence(true)
-      startBackgroundCarrier()
-      updateMediaMetadata()
       const token = sequenceId
       const item = currentWord.value
+      updateMediaMetadata()
+      setMediaPlaybackState('playing')
 
-      speakText(item.word, 'en-US', speechRate.value, () => {
-        if (!autoPlay.value || token !== sequenceId) return
-        scheduleAuto(350, token, () => {
-          speakText(item.meaning, 'ko-KR', koreanRate.value, () => {
-            if (!autoPlay.value || token !== sequenceId) return
-            scheduleAuto(750, token, () => {
-              if (currentIndex.value >= dayWords.value.length - 1) {
-                autoPlay.value = false
-                clearAutoTimer()
-                stopBackgroundCarrier()
-                return
-              }
-              currentIndex.value += 1
-              state.value.lastIndex = currentIndex.value
-              save()
-              nextTick(() => runAutoSequence())
-            })
-          }, false)
+      playMediaTts(item.word, 'en-US', speechRate.value, token, () => {
+        playMediaTts(item.meaning, 'ko-KR', koreanRate.value, token, () => {
+          if (!autoPlay.value || token !== sequenceId) return
+          if (currentIndex.value >= dayWords.value.length - 1) {
+            finishAutoSequence()
+            return
+          }
+          currentIndex.value += 1
+          state.value.lastIndex = currentIndex.value
+          save()
+          nextTick(() => runAutoSequence())
         })
-      }, false)
+      })
     }
 
     function toggleAutoPlay() {
@@ -278,8 +266,25 @@ createApp({
         return
       }
       autoPlay.value = true
-      startBackgroundCarrier()
       runAutoSequence()
+    }
+
+    function setupMediaSession() {
+      if (!('mediaSession' in navigator)) return
+      const setHandler = (name, handler) => {
+        try { navigator.mediaSession.setActionHandler(name, handler) } catch (_) {}
+      }
+      setHandler('play', () => {
+        if (activeView.value !== 'study') return
+        if (!autoPlay.value) {
+          autoPlay.value = true
+          runAutoSequence()
+        }
+      })
+      setHandler('pause', () => cancelSequence(false))
+      setHandler('nexttrack', () => move(1))
+      setHandler('previoustrack', () => move(-1))
+      setHandler('stop', () => cancelSequence(false))
     }
 
     function openDay(day, index = 0) {
@@ -308,10 +313,7 @@ createApp({
       cancelSequence(wasAuto)
       const next = currentIndex.value + step
       if (next < 0 || next >= dayWords.value.length) {
-        if (wasAuto) {
-          autoPlay.value = false
-          stopBackgroundCarrier()
-        }
+        if (wasAuto) finishAutoSequence()
         return
       }
       currentIndex.value = next
@@ -357,6 +359,7 @@ createApp({
       quizAnswer.value = null
       quizFinished.value = false
       activeView.value = 'quiz'
+      saveUi()
       if (autoSpeak.value) setTimeout(() => speakText(target.word, 'en-US', speechRate.value), 80)
     }
 
@@ -408,26 +411,49 @@ createApp({
       updateMediaMetadata()
     })
 
-    watch([speechRate, koreanRate, autoSpeak], () => {
+    watch([speechRate, koreanRate, autoSpeak, showMeaning], () => {
       if (ready.value) save()
     })
 
+    watch(searchText, () => { if (ready.value) saveUi() })
+    watch([quiz, quizAnswer, quizFinished], () => { if (ready.value) saveUi() }, { deep: true })
+
     watch(activeView, view => {
       if (view !== 'study' && autoPlay.value) cancelSequence(false)
+      if (ready.value) saveUi()
     })
+
+    function restoreViewAfterData() {
+      const hashView = location.hash.replace('#', '')
+      const wantedView = VALID_VIEWS.includes(hashView)
+        ? hashView
+        : (restoredUi && VALID_VIEWS.includes(restoredUi.activeView) ? restoredUi.activeView : 'home')
+
+      const wantedDay = Number(restoredUi?.selectedDay || state.value.lastDay || 1)
+      selectedDay.value = Math.min(30, Math.max(1, wantedDay))
+      const maxIndex = Math.max(0, words.value.filter(w => w.day === selectedDay.value).length - 1)
+      currentIndex.value = Math.min(Math.max(0, Number(restoredUi?.currentIndex ?? state.value.lastIndex ?? 0)), maxIndex)
+
+      if (wantedView === 'quiz' && !quiz.value) activeView.value = 'study'
+      else activeView.value = wantedView
+    }
 
     onMounted(async () => {
       load()
       setupMediaSession()
+
       document.addEventListener('visibilitychange', () => {
-        if (document.hidden && autoPlay.value) {
-          startBackgroundCarrier()
-          try { window.speechSynthesis?.resume() } catch (_) {}
-        } else if (!document.hidden && autoPlay.value) {
+        if (autoPlay.value) {
           updateMediaMetadata()
           setMediaPlaybackState('playing')
         }
       })
+
+      window.addEventListener('hashchange', () => {
+        const view = location.hash.replace('#', '')
+        if (ready.value && VALID_VIEWS.includes(view) && view !== activeView.value) activeView.value = view
+      })
+
       try {
         const dataFiles = [
           '/data/words-01-03.json',
@@ -460,15 +486,18 @@ createApp({
         console.error(error)
         alert('단어 데이터를 불러오지 못했습니다. 인터넷 연결 후 새로고침해 주세요.')
       }
-      selectedDay.value = state.value.lastDay || 1
-      const maxIndex = Math.max(0, words.value.filter(w => w.day === selectedDay.value).length - 1)
-      currentIndex.value = Math.min(state.value.lastIndex || 0, maxIndex)
+
+      restoreViewAfterData()
       ready.value = true
+      state.value.lastDay = selectedDay.value
+      state.value.lastIndex = currentIndex.value
       updateMediaMetadata()
+      saveUi()
     })
 
     window.addEventListener('beforeunload', () => {
-      if (keepAliveUrl) URL.revokeObjectURL(keepAliveUrl)
+      saveUi()
+      stopAutoAudio()
     })
 
     return {
