@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="DAY 1~30 토익 단어 모바일 학습" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/style.css" />
+  <title>TOEIC 30DAY</title>
+</head>
+<body>
+  <div id="app" class="app-shell" v-cloak>
+    <header class="topbar">
+      <button class="brand" @click="activeView = 'home'" aria-label="홈으로">
+        <span class="brand-mark">T</span>
+        <span><b>TOEIC 30DAY</b><small>{{ words.length.toLocaleString() }} words</small></span>
+      </button>
+      <div class="top-progress">
+        <strong>{{ overallPercent }}%</strong>
+        <span>전체 암기</span>
+      </div>
+    </header>
+
+    <main>
+      <section v-if="activeView === 'home'" class="view home-view">
+        <div class="hero-card">
+          <div>
+            <p class="eyebrow">오늘도 가볍게</p>
+            <h1>걷다가도<br><span>한 단어씩.</span></h1>
+            <p>발음 듣고, 뜻 확인하고, 외웠는지만 눌러주세요. 진도는 자동 저장됩니다.</p>
+          </div>
+          <button class="primary hero-action" @click="continueStudy">이어 공부하기 →</button>
+          <div class="overall-bar"><i :style="{ width: overallPercent + '%' }"></i></div>
+          <div class="hero-stats">
+            <span><b>{{ knownIds.length }}</b> 외움</span>
+            <span><b>{{ reviewWords.length }}</b> 복습 필요</span>
+            <span><b>{{ words.length }}</b> 전체</span>
+          </div>
+        </div>
+
+        <div class="section-head">
+          <div><p class="eyebrow">DAY 1–30</p><h2>학습할 DAY 선택</h2></div>
+          <button class="text-button" @click="resetProgress">기록 초기화</button>
+        </div>
+
+        <div class="day-grid">
+          <button v-for="item in dayTopics" :key="item.day" class="day-card" @click="openDay(item.day, 0)">
+            <div class="day-card-head">
+              <span>DAY {{ item.day }}</span>
+              <b>{{ dayProgress(item.day).percent }}%</b>
+            </div>
+            <h3>{{ item.topic }}</h3>
+            <div class="mini-bar"><i :style="{ width: dayProgress(item.day).percent + '%' }"></i></div>
+            <small>{{ dayProgress(item.day).known }} / {{ dayProgress(item.day).total }} 단어</small>
+          </button>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'study'" class="view study-view">
+        <div class="study-toolbar">
+          <button class="icon-button" @click="activeView = 'home'">←</button>
+          <button class="day-selector" @click="activeView = 'home'">
+            <b>DAY {{ selectedDay }}</b><span>{{ currentWord?.topic }}</span>
+          </button>
+          <button class="icon-button" :class="{ on: autoSpeak }" @click="autoSpeak = !autoSpeak" title="자동 발음">🔊</button>
+        </div>
+
+        <div class="study-progress-row">
+          <span>{{ currentIndex + 1 }} / {{ dayWords.length }}</span>
+          <div class="study-progress"><i :style="{ width: ((currentIndex + 1) / dayWords.length * 100) + '%' }"></i></div>
+          <span>{{ dayProgress(selectedDay).percent }}%</span>
+        </div>
+
+        <div class="word-card" @touchstart="onTouchStart" @touchend="onTouchEnd">
+          <span class="status-pill" v-if="currentWord && state.status[currentWord.id] === 'known'">✓ 외움</span>
+          <span class="status-pill unknown" v-else-if="currentWord && state.status[currentWord.id] === 'unknown'">↻ 복습</span>
+          <button class="speaker-big" @click="speak(currentWord?.word)" aria-label="발음 듣기">🔊</button>
+          <p class="word-label">WORD</p>
+          <h2>{{ currentWord?.word }}</h2>
+          <button v-if="!showMeaning" class="meaning-hidden" @click="toggleMeaning">뜻 보기</button>
+          <div v-else class="meaning-box" @click="toggleMeaning">
+            <small>MEANING</small>
+            <p>{{ currentWord?.meaning }}</p>
+          </div>
+          <p class="swipe-hint">좌우로 밀어 이전·다음 단어</p>
+        </div>
+
+        <div class="rate-row">
+          <label>발음 속도 <b>{{ speechRate.toFixed(1) }}x</b></label>
+          <input v-model.number="speechRate" type="range" min="0.6" max="1.2" step="0.1" />
+        </div>
+
+        <div class="judge-row">
+          <button class="unknown-btn" @click="mark('unknown')">아직 몰라요</button>
+          <button class="known-btn" @click="mark('known')">외웠어요 ✓</button>
+        </div>
+        <div class="nav-row">
+          <button @click="move(-1)" :disabled="currentIndex === 0">← 이전</button>
+          <button @click="makeQuiz(selectedDay)">4지선다 퀴즈</button>
+          <button @click="move(1)" :disabled="currentIndex === dayWords.length - 1">다음 →</button>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'quiz'" class="view quiz-view">
+        <div class="study-toolbar">
+          <button class="icon-button" @click="activeView = 'home'">←</button>
+          <div class="day-selector"><b>DAY {{ selectedDay }} 퀴즈</b><span>뜻을 골라보세요</span></div>
+          <button class="icon-button" @click="speak(quiz?.target.word)">🔊</button>
+        </div>
+
+        <div v-if="quiz" class="quiz-card">
+          <p class="eyebrow">이 단어의 뜻은?</p>
+          <h2>{{ quiz.target.word }}</h2>
+          <div class="quiz-options">
+            <button v-for="(option, idx) in quiz.options" :key="option.id" :class="optionClass(option)" @click="answerQuiz(option)">
+              <span>{{ String.fromCharCode(65 + idx) }}</span>{{ option.meaning }}
+            </button>
+          </div>
+          <div v-if="quizFinished" class="quiz-result" :class="{ success: quizAnswer === quiz.target.id }">
+            <b>{{ quizAnswer === quiz.target.id ? '정답입니다 ✓' : '다시 복습할 단어에 추가했어요' }}</b>
+            <button class="primary" @click="makeQuiz(selectedDay)">다음 문제</button>
+          </div>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'review'" class="view list-view">
+        <div class="page-title">
+          <p class="eyebrow">REVIEW</p>
+          <h1>복습 단어 <span>{{ reviewWords.length }}</span></h1>
+          <p>학습에서 ‘아직 몰라요’를 누르거나 퀴즈에서 틀린 단어입니다.</p>
+        </div>
+        <button v-if="reviewWords.length" class="primary full" @click="studyReview">복습 시작하기</button>
+        <div v-if="!reviewWords.length" class="empty-state">복습할 단어가 없습니다. 👍</div>
+        <div class="word-list">
+          <article v-for="item in reviewWords" :key="item.id">
+            <button class="word-list-main" @click="openWord(item)">
+              <span><b>{{ item.word }}</b><small>DAY {{ item.day }} · {{ item.topic }}</small></span>
+              <p>{{ item.meaning }}</p>
+            </button>
+            <button class="mini-speaker" @click="speak(item.word)">🔊</button>
+          </article>
+        </div>
+      </section>
+
+      <section v-else-if="activeView === 'search'" class="view list-view">
+        <div class="page-title">
+          <p class="eyebrow">SEARCH</p>
+          <h1>단어 찾기</h1>
+        </div>
+        <div class="search-box">
+          <span>⌕</span><input v-model="searchText" placeholder="영단어 또는 뜻 검색" />
+        </div>
+        <div v-if="searchText && !filteredWords.length" class="empty-state">검색 결과가 없습니다.</div>
+        <div class="word-list">
+          <article v-for="item in filteredWords" :key="item.id">
+            <button class="word-list-main" @click="openWord(item)">
+              <span><b>{{ item.word }}</b><small>DAY {{ item.day }} · {{ item.topic }}</small></span>
+              <p>{{ item.meaning }}</p>
+            </button>
+            <button class="mini-speaker" @click="speak(item.word)">🔊</button>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav">
+      <button :class="{ active: activeView === 'home' }" @click="activeView = 'home'"><span>⌂</span>홈</button>
+      <button :class="{ active: activeView === 'study' }" @click="continueStudy"><span>▣</span>학습</button>
+      <button :class="{ active: activeView === 'quiz' }" @click="makeQuiz(selectedDay)"><span>?</span>퀴즈</button>
+      <button :class="{ active: activeView === 'review' }" @click="activeView = 'review'"><span>↻</span>복습</button>
+      <button :class="{ active: activeView === 'search' }" @click="activeView = 'search'"><span>⌕</span>검색</button>
+    </nav>
+  </div>
+
+  <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
