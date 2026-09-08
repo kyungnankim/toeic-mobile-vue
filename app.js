@@ -22,6 +22,8 @@ createApp({
 
     let sequenceId = 0
     let autoTimer = null
+    let keepAliveAudio = null
+    let keepAliveUrl = ''
 
     const state = ref({ status: {}, wrong: [], lastDay: 1, lastIndex: 0 })
 
@@ -80,6 +82,102 @@ createApp({
       }
     }
 
+    function makeKeepAliveWav() {
+      const sampleRate = 8000
+      const seconds = 2
+      const samples = sampleRate * seconds
+      const buffer = new ArrayBuffer(44 + samples * 2)
+      const view = new DataView(buffer)
+      const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)) }
+      write(0, 'RIFF')
+      view.setUint32(4, 36 + samples * 2, true)
+      write(8, 'WAVE')
+      write(12, 'fmt ')
+      view.setUint32(16, 16, true)
+      view.setUint16(20, 1, true)
+      view.setUint16(22, 1, true)
+      view.setUint32(24, sampleRate, true)
+      view.setUint32(28, sampleRate * 2, true)
+      view.setUint16(32, 2, true)
+      view.setUint16(34, 16, true)
+      write(36, 'data')
+      view.setUint32(40, samples * 2, true)
+      for (let i = 0; i < samples; i++) view.setInt16(44 + i * 2, i % 1600 === 0 ? 1 : 0, true)
+      return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }))
+    }
+
+    function ensureKeepAliveAudio() {
+      if (keepAliveAudio) return keepAliveAudio
+      keepAliveUrl = makeKeepAliveWav()
+      keepAliveAudio = document.createElement('audio')
+      keepAliveAudio.src = keepAliveUrl
+      keepAliveAudio.loop = true
+      keepAliveAudio.preload = 'auto'
+      keepAliveAudio.playsInline = true
+      keepAliveAudio.setAttribute('aria-hidden', 'true')
+      keepAliveAudio.style.position = 'fixed'
+      keepAliveAudio.style.width = '1px'
+      keepAliveAudio.style.height = '1px'
+      keepAliveAudio.style.opacity = '0.001'
+      keepAliveAudio.style.pointerEvents = 'none'
+      keepAliveAudio.style.left = '-9999px'
+      document.body.appendChild(keepAliveAudio)
+      return keepAliveAudio
+    }
+
+    function setMediaPlaybackState(value) {
+      try {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = value
+      } catch (_) {}
+    }
+
+    function updateMediaMetadata() {
+      if (!('mediaSession' in navigator) || !currentWord.value) return
+      try {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentWord.value.word,
+          artist: currentWord.value.meaning,
+          album: `TOEIC DAY ${selectedDay.value} · ${currentIndex.value + 1}/${dayWords.value.length}`
+        })
+      } catch (_) {}
+    }
+
+    function startBackgroundCarrier() {
+      const audio = ensureKeepAliveAudio()
+      try {
+        if ('audioSession' in navigator && navigator.audioSession) navigator.audioSession.type = 'playback'
+      } catch (_) {}
+      audio.play().catch(() => {})
+      updateMediaMetadata()
+      setMediaPlaybackState('playing')
+    }
+
+    function stopBackgroundCarrier() {
+      if (keepAliveAudio) {
+        try { keepAliveAudio.pause() } catch (_) {}
+      }
+      setMediaPlaybackState('paused')
+    }
+
+    function setupMediaSession() {
+      if (!('mediaSession' in navigator)) return
+      const setHandler = (name, handler) => {
+        try { navigator.mediaSession.setActionHandler(name, handler) } catch (_) {}
+      }
+      setHandler('play', () => {
+        if (activeView.value !== 'study') return
+        if (!autoPlay.value) {
+          autoPlay.value = true
+          startBackgroundCarrier()
+          runAutoSequence()
+        }
+      })
+      setHandler('pause', () => cancelSequence(false))
+      setHandler('nexttrack', () => move(1))
+      setHandler('previoustrack', () => move(-1))
+      setHandler('stop', () => cancelSequence(false))
+    }
+
     function pickVoice(lang) {
       const voices = window.speechSynthesis?.getVoices?.() || []
       const normalized = lang.toLowerCase()
@@ -109,14 +207,29 @@ createApp({
       }
       utter.onend = finish
       utter.onerror = finish
+      try { window.speechSynthesis.resume() } catch (_) {}
       window.speechSynthesis.speak(utter)
+    }
+
+    function scheduleAuto(delay, token, callback) {
+      if (!autoPlay.value || token !== sequenceId) return
+      if (document.hidden) {
+        callback()
+        return
+      }
+      autoTimer = setTimeout(() => {
+        if (autoPlay.value && token === sequenceId) callback()
+      }, delay)
     }
 
     function cancelSequence(keepAutoPlay = false) {
       sequenceId += 1
       clearAutoTimer()
       if ('speechSynthesis' in window) window.speechSynthesis.cancel()
-      if (!keepAutoPlay) autoPlay.value = false
+      if (!keepAutoPlay) {
+        autoPlay.value = false
+        stopBackgroundCarrier()
+      }
     }
 
     function speak(text) {
@@ -132,29 +245,30 @@ createApp({
     function runAutoSequence() {
       if (!autoPlay.value || activeView.value !== 'study' || !currentWord.value) return
       cancelSequence(true)
+      startBackgroundCarrier()
+      updateMediaMetadata()
       const token = sequenceId
       const item = currentWord.value
 
       speakText(item.word, 'en-US', speechRate.value, () => {
         if (!autoPlay.value || token !== sequenceId) return
-        autoTimer = setTimeout(() => {
-          if (!autoPlay.value || token !== sequenceId) return
+        scheduleAuto(350, token, () => {
           speakText(item.meaning, 'ko-KR', koreanRate.value, () => {
             if (!autoPlay.value || token !== sequenceId) return
-            autoTimer = setTimeout(() => {
-              if (!autoPlay.value || token !== sequenceId) return
+            scheduleAuto(750, token, () => {
               if (currentIndex.value >= dayWords.value.length - 1) {
                 autoPlay.value = false
                 clearAutoTimer()
+                stopBackgroundCarrier()
                 return
               }
               currentIndex.value += 1
               state.value.lastIndex = currentIndex.value
               save()
               nextTick(() => runAutoSequence())
-            }, 750)
+            })
           }, false)
-        }, 350)
+        })
       }, false)
     }
 
@@ -164,6 +278,7 @@ createApp({
         return
       }
       autoPlay.value = true
+      startBackgroundCarrier()
       runAutoSequence()
     }
 
@@ -193,13 +308,17 @@ createApp({
       cancelSequence(wasAuto)
       const next = currentIndex.value + step
       if (next < 0 || next >= dayWords.value.length) {
-        if (wasAuto) autoPlay.value = false
+        if (wasAuto) {
+          autoPlay.value = false
+          stopBackgroundCarrier()
+        }
         return
       }
       currentIndex.value = next
       state.value.lastIndex = next
       save()
       nextTick(() => {
+        updateMediaMetadata()
         if (wasAuto) runAutoSequence()
         else if (autoSpeak.value) speakText(currentWord.value?.word, 'en-US', speechRate.value)
       })
@@ -286,6 +405,7 @@ createApp({
       state.value.lastDay = selectedDay.value
       state.value.lastIndex = currentIndex.value
       save()
+      updateMediaMetadata()
     })
 
     watch([speechRate, koreanRate, autoSpeak], () => {
@@ -298,6 +418,16 @@ createApp({
 
     onMounted(async () => {
       load()
+      setupMediaSession()
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && autoPlay.value) {
+          startBackgroundCarrier()
+          try { window.speechSynthesis?.resume() } catch (_) {}
+        } else if (!document.hidden && autoPlay.value) {
+          updateMediaMetadata()
+          setMediaPlaybackState('playing')
+        }
+      })
       try {
         const dataFiles = [
           '/data/words-01-03.json',
@@ -334,6 +464,11 @@ createApp({
       const maxIndex = Math.max(0, words.value.filter(w => w.day === selectedDay.value).length - 1)
       currentIndex.value = Math.min(state.value.lastIndex || 0, maxIndex)
       ready.value = true
+      updateMediaMetadata()
+    })
+
+    window.addEventListener('beforeunload', () => {
+      if (keepAliveUrl) URL.revokeObjectURL(keepAliveUrl)
     })
 
     return {
