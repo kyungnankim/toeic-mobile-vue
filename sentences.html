@@ -47,6 +47,27 @@
   </div>
   <audio id="audio" preload="auto" playsinline></audio>
   <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
+  <script>
+    if (!('DecompressionStream' in window) && window.TransformStream && window.pako) {
+      window.DecompressionStream = class extends TransformStream {
+        constructor(format) {
+          if (format !== 'gzip') throw new TypeError('Only gzip is supported')
+          const chunks = []
+          super({
+            transform(chunk) { chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)) },
+            flush(controller) {
+              let size = 0
+              for (const chunk of chunks) size += chunk.byteLength
+              const input = new Uint8Array(size)
+              let offset = 0
+              for (const chunk of chunks) { input.set(chunk, offset); offset += chunk.byteLength }
+              controller.enqueue(window.pako.ungzip(input))
+            }
+          })
+        }
+      }
+    }
+  </script>
   <script src="/sentences.js"></script>
 </body>
 </html>
