@@ -275,3 +275,149 @@
   window.toeicLc = { open: openPlayer, close: closePlayer, play: togglePlay }
   init()
 })()
+
+;(() => {
+  const MODE_KEY = 'toeic-auto-end-mode-v1'
+  let attachedAudio = null
+  let handlingEnd = false
+
+  function getMode() {
+    return localStorage.getItem(MODE_KEY) === 'repeat' ? 'repeat' : 'next'
+  }
+
+  function setMode(mode) {
+    localStorage.setItem(MODE_KEY, mode === 'repeat' ? 'repeat' : 'next')
+    renderMode()
+  }
+
+  function currentDay() {
+    const text = document.querySelector('.study-view .day-selector b')?.textContent || ''
+    const match = text.match(/DAY\s*(\d+)/i)
+    return match ? Number(match[1]) : 1
+  }
+
+  function findDayCard(day) {
+    return Array.from(document.querySelectorAll('.day-card')).find(card => {
+      const text = card.querySelector('.day-card-head span')?.textContent || ''
+      return new RegExp(`DAY\\s*${day}(?:\\D|$)`, 'i').test(text)
+    })
+  }
+
+  function clickWhenReady(selector, timeout = 5000) {
+    return new Promise(resolve => {
+      const started = Date.now()
+      const tick = () => {
+        const el = document.querySelector(selector)
+        if (el) {
+          el.click()
+          resolve(true)
+          return
+        }
+        if (Date.now() - started > timeout) {
+          resolve(false)
+          return
+        }
+        setTimeout(tick, 60)
+      }
+      tick()
+    })
+  }
+
+  async function restartAtDay(day) {
+    const homeBtn = document.querySelector('.bottom-nav button:first-child') || document.querySelector('.brand')
+    if (!homeBtn) return
+    homeBtn.click()
+
+    const started = Date.now()
+    while (Date.now() - started < 5000) {
+      const card = findDayCard(day)
+      if (card) {
+        card.click()
+        const ok = await clickWhenReady('.study-view .auto-study-btn', 5000)
+        if (!ok) handlingEnd = false
+        return
+      }
+      await new Promise(r => setTimeout(r, 70))
+    }
+    handlingEnd = false
+  }
+
+  async function onStudyTrackEnded() {
+    if (handlingEnd) return
+    if (!document.querySelector('.study-view')) return
+    handlingEnd = true
+
+    const day = currentDay()
+    const mode = getMode()
+    const targetDay = mode === 'repeat' ? day : (day >= 30 ? 1 : day + 1)
+
+    await new Promise(r => setTimeout(r, 180))
+    await restartAtDay(targetDay)
+    setTimeout(() => { handlingEnd = false }, 700)
+  }
+
+  function attachStudyAudio() {
+    const candidates = Array.from(document.querySelectorAll('audio')).filter(el => el.id !== 'lcAudio')
+    const audio = candidates.find(el => el.style.left === '-9999px') || candidates[0]
+    if (!audio || audio === attachedAudio) return
+    attachedAudio = audio
+    audio.addEventListener('ended', onStudyTrackEnded)
+  }
+
+  function injectStyle() {
+    if (document.getElementById('autoEndModeStyle')) return
+    const style = document.createElement('style')
+    style.id = 'autoEndModeStyle'
+    style.textContent = `
+      .auto-end-mode { margin: 2px 4px 17px; padding: 5px; display:grid; grid-template-columns:1fr 1fr; gap:5px; background:#eef2ff; border:1px solid #dfe3f4; border-radius:16px; }
+      .auto-end-mode button { min-height:44px; border:0; border-radius:12px; background:transparent; color:#64748b; font-size:14px; font-weight:800; }
+      .auto-end-mode button.active { background:#fff; color:#4338ca; box-shadow:0 3px 10px rgba(67,56,202,.10); }
+      .auto-end-caption { grid-column:1/-1; padding:2px 4px 4px; color:#7c83a0; text-align:center; font-size:11px; }
+    `
+    document.head.appendChild(style)
+  }
+
+  function renderMode() {
+    const root = document.getElementById('autoEndMode')
+    if (!root) return
+    const mode = getMode()
+    root.querySelector('[data-mode="repeat"]')?.classList.toggle('active', mode === 'repeat')
+    root.querySelector('[data-mode="next"]')?.classList.toggle('active', mode === 'next')
+    const caption = root.querySelector('.auto-end-caption')
+    if (caption) caption.textContent = mode === 'repeat' ? '마지막 단어 후 DAY 처음부터 다시 재생' : '마지막 단어 후 다음 DAY로 자동 이동'
+  }
+
+  function injectControl() {
+    const study = document.querySelector('.study-view')
+    if (!study || document.getElementById('autoEndMode')) return
+    const anchor = study.querySelector('.dual-rate-row') || study.querySelector('.judge-row')
+    if (!anchor) return
+
+    const root = document.createElement('div')
+    root.id = 'autoEndMode'
+    root.className = 'auto-end-mode'
+    root.innerHTML = `
+      <button type="button" data-mode="repeat">DAY 반복</button>
+      <button type="button" data-mode="next">다음 DAY</button>
+      <div class="auto-end-caption"></div>
+    `
+    root.addEventListener('click', event => {
+      const btn = event.target.closest('button[data-mode]')
+      if (!btn) return
+      setMode(btn.dataset.mode)
+    })
+    anchor.insertAdjacentElement('afterend', root)
+    renderMode()
+  }
+
+  function refresh() {
+    injectStyle()
+    injectControl()
+    attachStudyAudio()
+  }
+
+  const observer = new MutationObserver(refresh)
+  observer.observe(document.documentElement, { childList: true, subtree: true })
+  document.addEventListener('DOMContentLoaded', refresh)
+  setInterval(refresh, 1200)
+})()
