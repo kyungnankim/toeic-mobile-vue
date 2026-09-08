@@ -1,6 +1,6 @@
-const CACHE = 'toeic-30day-v19'
+const CACHE = 'toeic-30day-v20'
 const CORE = [
-  '/', '/index.html', '/app.js', '/style.css', '/icons.css', '/study-controls.css', '/mock-test.css', '/rc.css', '/theme-indigo.css', '/lc.css', '/lc-player.js', '/home-sentences-link.js', '/sentences.html', '/sentences.css', '/sentences.js', '/manifest.webmanifest', '/icon.svg',
+  '/', '/index.html', '/app.js', '/style.css', '/icons.css', '/study-controls.css', '/mock-test.css', '/rc.css', '/theme-indigo.css', '/lc.css', '/lc-player.js', '/lc-player-core.js', '/quiz-hub.js', '/home-sentences-link.js', '/sentences.html', '/sentences.css', '/sentences.js', '/manifest.webmanifest', '/icon.svg',
   '/mock.html', '/mock.js', '/rc.html', '/rc.js',
   '/data/mock-nexus-answer-key.json', '/data/mock-test1-answer-key.json', '/data/rc-v1-answer-key.json', '/data/rc-v2-answer-key.json', '/data/rc-v1.json', '/data/rc-v2.json', '/data/lc-sentences-400.gz.b64',
   '/data/words-01-03.json', '/data/words-04-06.json', '/data/words-07-09.json',
