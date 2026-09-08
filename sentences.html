@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#312e81" />
   <meta name="description" content="TOEIC LC 400문장 구간별 자동 듣기" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/sentences.css" />
+  <link rel="stylesheet" href="/sentences.css?v=22" />
   <title>TOEIC LC 400문장</title>
 </head>
 <body>
@@ -46,47 +46,6 @@
     </main>
   </div>
   <audio id="audio" preload="auto" playsinline></audio>
-  <script>
-    (function () {
-      function startApp() {
-        const app = document.createElement('script')
-        app.src = '/sentences.js?v=fast21'
-        app.defer = true
-        document.body.appendChild(app)
-      }
-      if ('DecompressionStream' in window) {
-        startApp()
-        return
-      }
-      const pako = document.createElement('script')
-      pako.src = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js'
-      pako.onload = function () {
-        if (window.TransformStream && window.pako) {
-          window.DecompressionStream = class extends TransformStream {
-            constructor(format) {
-              if (format !== 'gzip') throw new TypeError('Only gzip is supported')
-              const chunks = []
-              super({
-                transform(chunk) { chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)) },
-                flush(controller) {
-                  let size = 0
-                  for (const chunk of chunks) size += chunk.byteLength
-                  const input = new Uint8Array(size)
-                  let offset = 0
-                  for (const chunk of chunks) { input.set(chunk, offset); offset += chunk.byteLength }
-                  controller.enqueue(window.pako.ungzip(input))
-                }
-              })
-            }
-          }
-        }
-        startApp()
-      }
-      pako.onerror = function () {
-        document.getElementById('statusText').textContent = '문장 압축 모듈을 불러오지 못했습니다.'
-      }
-      document.head.appendChild(pako)
-    })()
-  </script>
+  <script src="/sentences.js?v=22"></script>
 </body>
 </html>
