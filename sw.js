@@ -1,11 +1,10 @@
-const CACHE = 'toeic-30day-v11'
+const CACHE = 'toeic-30day-v12'
 const CORE = [
   '/', '/index.html', '/app.js', '/style.css', '/icons.css', '/study-controls.css', '/mock-test.css', '/rc.css', '/theme-indigo.css', '/manifest.webmanifest', '/icon.svg',
   '/mock.html', '/mock.js', '/rc.html', '/rc.js',
   '/data/mock-nexus-answer-key.json', '/data/mock-test1-answer-key.json', '/data/rc-v1-answer-key.json', '/data/rc-v2-answer-key.json', '/data/rc-v1.json', '/data/rc-v2.json',
   '/data/words-01-03.json', '/data/words-04-06.json', '/data/words-07-09.json',
-  '/data/words-10-12.json', '/data/words-13-15.json', '/data/words-16-18.json',
-  '/data/words-19-21.json', '/data/words-22-24.json', '/data/words-25-27.json',
+  '/data/words-10-12.json', '/data/words-13-15.json', '/data/words-16-18.json', '/data/words-19-21.json', '/data/words-22-24.json', '/data/words-25-27.json',
   '/data/words-28-30.json'
 ]
 
