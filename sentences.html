@@ -46,28 +46,47 @@
     </main>
   </div>
   <audio id="audio" preload="auto" playsinline></audio>
-  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
   <script>
-    if (!('DecompressionStream' in window) && window.TransformStream && window.pako) {
-      window.DecompressionStream = class extends TransformStream {
-        constructor(format) {
-          if (format !== 'gzip') throw new TypeError('Only gzip is supported')
-          const chunks = []
-          super({
-            transform(chunk) { chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)) },
-            flush(controller) {
-              let size = 0
-              for (const chunk of chunks) size += chunk.byteLength
-              const input = new Uint8Array(size)
-              let offset = 0
-              for (const chunk of chunks) { input.set(chunk, offset); offset += chunk.byteLength }
-              controller.enqueue(window.pako.ungzip(input))
-            }
-          })
-        }
+    (function () {
+      function startApp() {
+        const app = document.createElement('script')
+        app.src = '/sentences.js?v=fast21'
+        app.defer = true
+        document.body.appendChild(app)
       }
-    }
+      if ('DecompressionStream' in window) {
+        startApp()
+        return
+      }
+      const pako = document.createElement('script')
+      pako.src = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js'
+      pako.onload = function () {
+        if (window.TransformStream && window.pako) {
+          window.DecompressionStream = class extends TransformStream {
+            constructor(format) {
+              if (format !== 'gzip') throw new TypeError('Only gzip is supported')
+              const chunks = []
+              super({
+                transform(chunk) { chunks.push(chunk instanceof Uint8Array ? chunk : new Uint8Array(chunk)) },
+                flush(controller) {
+                  let size = 0
+                  for (const chunk of chunks) size += chunk.byteLength
+                  const input = new Uint8Array(size)
+                  let offset = 0
+                  for (const chunk of chunks) { input.set(chunk, offset); offset += chunk.byteLength }
+                  controller.enqueue(window.pako.ungzip(input))
+                }
+              })
+            }
+          }
+        }
+        startApp()
+      }
+      pako.onerror = function () {
+        document.getElementById('statusText').textContent = '문장 압축 모듈을 불러오지 못했습니다.'
+      }
+      document.head.appendChild(pako)
+    })()
   </script>
-  <script src="/sentences.js"></script>
 </body>
 </html>
