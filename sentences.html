@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#312e81" />
+  <meta name="description" content="TOEIC LC 400문장 구간별 자동 듣기" />
+  <link rel="icon" href="/icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/sentences.css" />
+  <title>TOEIC LC 400문장</title>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="back" href="/" aria-label="홈으로">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </a>
+      <div class="head-copy">
+        <strong>TOEIC LC 400</strong>
+        <span>40구간 · 구간당 10문장</span>
+      </div>
+      <div class="count"><b id="globalNo">1</b><span>/400</span></div>
+    </header>
+
+    <main>
+      <section class="hero">
+        <p class="eyebrow">AUTO LISTENING</p>
+        <h1>토익 LC<br><span>400문장 자동 듣기</span></h1>
+        <p>영어 문장 → 한국어 뜻 → 다음 문장 순서로 자동 재생합니다. 구간 반복 또는 다음 구간 자동 이동을 선택할 수 있습니다.</p>
+      </section>
+
+      <section class="section-nav card">
+        <div class="section-title-row">
+          <div>
+            <small>현재 구간</small>
+            <h2 id="sectionTitle">1. 회의 일정 변경</h2>
+          </div>
+          <button id="sectionPickerBtn" class="icon-btn" aria-label="구간 선택">
+            <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+          </button>
+        </div>
+        <select id="sectionSelect" aria-label="구간 선택"></select>
+        <div class="section-arrows">
+          <button id="prevSection"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>이전 구간</button>
+          <button id="nextSection">다음 구간<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
+        </div>
+      </section>
+
+      <section class="player card">
+        <div class="sentence-meta">
+          <span id="sentenceNo">1 / 10</span>
+          <span id="statusText">재생 준비 중</span>
+        </div>
+        <div class="progress-track"><i id="progressBar"></i></div>
+
+        <article class="sentence-card">
+          <button id="speakOne" class="speaker" aria-label="현재 문장 듣기">
+            <svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+          </button>
+          <p id="englishText" class="english"></p>
+          <p id="koreanText" class="korean"></p>
+        </article>
+
+        <div class="main-controls">
+          <button id="backSentence" class="round-btn" aria-label="이전 문장">
+            <svg viewBox="0 0 24 24"><path d="M19 20 9 12l10-8v16Z"/><path d="M5 4v16"/></svg>
+          </button>
+          <button id="playBtn" class="play-btn" aria-label="자동 듣기 시작">
+            <svg id="playIcon" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></svg>
+            <svg id="pauseIcon" viewBox="0 0 24 24" hidden><path d="M8 5v14M16 5v14"/></svg>
+          </button>
+          <button id="nextSentence" class="round-btn" aria-label="다음 문장">
+            <svg viewBox="0 0 24 24"><path d="m5 4 10 8-10 8V4Z"/><path d="M19 4v16"/></svg>
+          </button>
+        </div>
+
+        <button id="prepareBtn" class="prepare-btn" hidden>이 구간 오디오 준비하기</button>
+        <div class="build-progress" id="buildWrap" hidden>
+          <div><span>오디오 준비 중</span><b id="buildPercent">0%</b></div>
+          <div class="build-track"><i id="buildBar"></i></div>
+        </div>
+
+        <div class="settings-grid">
+          <label>
+            <span>재생 내용</span>
+            <select id="listenMode">
+              <option value="both">영어 + 한국어</option>
+              <option value="en">영어만</option>
+            </select>
+          </label>
+          <label>
+            <span>구간 끝나면</span>
+            <select id="endMode">
+              <option value="next">다음 구간</option>
+              <option value="repeat">현재 구간 반복</option>
+            </select>
+          </label>
+          <label>
+            <span>영어 속도 <b id="enRateText">0.9x</b></span>
+            <input id="enRate" type="range" min="0.7" max="1.2" step="0.1" value="0.9" />
+          </label>
+          <label>
+            <span>한국어 속도 <b id="koRateText">0.95x</b></span>
+            <input id="koRate" type="range" min="0.75" max="1.2" step="0.05" value="0.95" />
+          </label>
+        </div>
+
+        <label class="meaning-toggle">
+          <input id="showKorean" type="checkbox" checked />
+          <span>한국어 뜻 화면에 표시</span>
+        </label>
+      </section>
+
+      <section class="list card">
+        <div class="list-head">
+          <h2>이 구간 10문장</h2>
+          <span>문장을 누르면 바로 이동</span>
+        </div>
+        <div id="sentenceList"></div>
+      </section>
+
+      <section class="tip">
+        <svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3Z"/><path d="M9 22h6"/></svg>
+        <p><b>삼성 인터넷 백그라운드 재생</b><br>삼성 인터넷 → 설정 → 유용한 기능 → 백그라운드 재생을 <strong>켜기</strong>로 설정하면 실제 오디오 트랙 재생 중에는 홈 화면으로 나가도 이어서 들을 수 있습니다.</p>
+      </section>
+    </main>
+  </div>
+
+  <audio id="audio" preload="auto" playsinline></audio>
+  <script src="/sentences.js"></script>
+</body>
+</html>
