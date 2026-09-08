@@ -9,6 +9,7 @@
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/icons.css" />
+  <link rel="stylesheet" href="/study-controls.css" />
   <title>TOEIC 30DAY</title>
 </head>
 <body>
@@ -65,7 +66,7 @@
           <button class="day-selector" @click="activeView = 'home'">
             <b>DAY {{ selectedDay }}</b><span>{{ currentWord?.topic }}</span>
           </button>
-          <button class="icon-button" :class="{ on: autoSpeak }" @click="autoSpeak = !autoSpeak" title="자동 발음" aria-label="자동 발음"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+          <button class="icon-button" :class="{ on: autoSpeak }" @click="autoSpeak = !autoSpeak" title="단어 이동 시 영어 자동 발음" aria-label="영어 자동 발음"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
         </div>
 
         <div class="study-progress-row">
@@ -74,23 +75,41 @@
           <span>{{ dayProgress(selectedDay).percent }}%</span>
         </div>
 
+        <div class="study-mode-panel">
+          <button class="auto-study-btn" :class="{ active: autoPlay }" @click="toggleAutoPlay">
+            <svg v-if="!autoPlay" class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>
+            <svg v-else class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14"/><path d="M16 5v14"/></svg>
+            <span><b>{{ autoPlay ? '자동 학습 중' : '자동 학습 시작' }}</b><small>영어 발음 → 한국어 뜻 → 다음 단어</small></span>
+          </button>
+          <button class="meaning-toggle-btn" :class="{ active: showMeaning }" @click="toggleMeaning">
+            <svg v-if="showMeaning" class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg>
+            <svg v-else class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 3 18 18"/><path d="M10.6 6.2A9.7 9.7 0 0 1 12 6c6 0 9.5 6 9.5 6a16 16 0 0 1-2.1 2.8"/><path d="M6.4 6.4C3.8 8.1 2.5 12 2.5 12s3.5 6 9.5 6a9.8 9.8 0 0 0 3.6-.7"/></svg>
+            {{ showMeaning ? '뜻 숨기기' : '뜻 보이기' }}
+          </button>
+        </div>
+
         <div class="word-card" @touchstart="onTouchStart" @touchend="onTouchEnd">
           <span class="status-pill icon-label" v-if="currentWord && state.status[currentWord.id] === 'known'"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg> 외움</span>
           <span class="status-pill unknown icon-label" v-else-if="currentWord && state.status[currentWord.id] === 'unknown'"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg> 복습</span>
-          <button class="speaker-big" @click="speak(currentWord?.word)" aria-label="발음 듣기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
+          <button class="speaker-big" @click="speak(currentWord?.word)" aria-label="영어 발음 듣기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
           <p class="word-label">WORD</p>
           <h2>{{ currentWord?.word }}</h2>
           <button v-if="!showMeaning" class="meaning-hidden" @click="toggleMeaning">뜻 보기</button>
-          <div v-else class="meaning-box" @click="toggleMeaning">
-            <small>MEANING</small>
+          <div v-else class="meaning-box">
+            <div class="meaning-title-row">
+              <small>MEANING</small>
+              <button class="meaning-sound-btn" @click.stop="speakMeaning(currentWord?.meaning)" aria-label="한국어 뜻 듣기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg></button>
+            </div>
             <p>{{ currentWord?.meaning }}</p>
           </div>
           <p class="swipe-hint">좌우로 밀어 이전·다음 단어</p>
         </div>
 
-        <div class="rate-row">
-          <label>발음 속도 <b>{{ speechRate.toFixed(1) }}x</b></label>
+        <div class="rate-row dual-rate-row">
+          <label>영어 속도 <b>{{ speechRate.toFixed(1) }}x</b></label>
           <input v-model.number="speechRate" type="range" min="0.6" max="1.2" step="0.1" />
+          <label>한국어 속도 <b>{{ koreanRate.toFixed(1) }}x</b></label>
+          <input v-model.number="koreanRate" type="range" min="0.7" max="1.2" step="0.05" />
         </div>
 
         <div class="judge-row">
