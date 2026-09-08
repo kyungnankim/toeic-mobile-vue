@@ -1,0 +1,62 @@
+/* Persistent TOEIC LC player */
+.lc-feature-card { margin: 18px 0 4px; padding: 20px; border: 1px solid #dfe3ff; border-radius: 24px; background: linear-gradient(135deg,#ffffff 0%,#f5f3ff 100%); display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:14px; box-shadow:0 10px 28px rgba(79,70,229,.08); }
+.lc-feature-icon { width:54px; height:54px; border-radius:18px; display:grid; place-items:center; background:#eef2ff; color:#4f46e5; }
+.lc-feature-icon svg { width:29px; height:29px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; }
+.lc-feature-copy b { display:block; font-size:18px; line-height:1.25; color:#111827; }
+.lc-feature-copy span { display:block; margin-top:5px; font-size:13px; line-height:1.4; color:#64748b; }
+.lc-feature-open { width:46px; height:46px; border:0; border-radius:15px; background:#6366f1; color:#fff; display:grid; place-items:center; }
+.lc-feature-open svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+.lc-overlay[hidden], .lc-mini-player[hidden] { display:none !important; }
+.lc-overlay { position:fixed; inset:0; z-index:80; background:#f7f8ff; overflow:auto; overscroll-behavior:contain; }
+.lc-overlay-shell { width:min(720px,100%); min-height:100%; margin:0 auto; padding:0 0 128px; background:linear-gradient(180deg,#f8f9ff 0%,#f5f6fb 100%); }
+.lc-overlay-head { position:sticky; top:0; z-index:3; min-height:78px; padding:12px 16px; display:grid; grid-template-columns:50px 1fr 50px; align-items:center; gap:10px; background:rgba(248,249,255,.94); backdrop-filter:blur(16px); border-bottom:1px solid #e5e7f4; }
+.lc-overlay-head button { width:48px; height:48px; border:1px solid #dfe3ee; border-radius:16px; background:#fff; color:#111827; display:grid; place-items:center; }
+.lc-overlay-head button svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.lc-overlay-title { text-align:center; min-width:0; }
+.lc-overlay-title b { display:block; font-size:19px; color:#111827; }
+.lc-overlay-title span { display:block; margin-top:3px; color:#8a94a7; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+.lc-main { padding:22px 16px 24px; }
+.lc-cover { min-height:260px; border-radius:30px; background:radial-gradient(circle at 80% 18%,rgba(196,181,253,.55),transparent 26%),linear-gradient(145deg,#111827,#312e81); color:#fff; padding:28px 24px; display:flex; flex-direction:column; justify-content:space-between; box-shadow:0 22px 50px rgba(49,46,129,.22); }
+.lc-cover-badge { width:72px; height:72px; border-radius:24px; display:grid; place-items:center; background:rgba(255,255,255,.12); border:1px solid rgba(255,255,255,.16); }
+.lc-cover-badge svg { width:38px; height:38px; fill:none; stroke:#c4b5fd; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.lc-cover .eyebrow { color:#c4b5fd; margin:22px 0 8px; }
+.lc-cover h1 { margin:0; font-size:clamp(34px,9vw,46px); line-height:1.04; letter-spacing:-.045em; }
+.lc-cover p { margin:12px 0 0; color:#cbd5e1; font-size:15px; line-height:1.55; }
+
+.lc-player-card { margin-top:16px; padding:22px 18px 18px; border:1px solid #e1e5f0; border-radius:26px; background:#fff; box-shadow:0 12px 32px rgba(15,23,42,.06); }
+.lc-status { min-height:22px; color:#64748b; font-size:13px; line-height:1.5; text-align:center; }
+.lc-progress-wrap { margin-top:18px; }
+.lc-progress-wrap input[type=range] { width:100%; accent-color:#6366f1; }
+.lc-time-row { display:flex; justify-content:space-between; margin-top:6px; color:#7c879b; font-size:12px; font-variant-numeric:tabular-nums; }
+.lc-controls { margin-top:16px; display:flex; align-items:center; justify-content:center; gap:20px; }
+.lc-controls button { border:0; background:none; color:#475569; display:grid; place-items:center; }
+.lc-controls .lc-jump { width:52px; height:52px; border-radius:18px; background:#f1f3fa; }
+.lc-controls .lc-play { width:76px; height:76px; border-radius:25px; background:#6366f1; color:#fff; box-shadow:0 12px 28px rgba(99,102,241,.25); }
+.lc-controls svg { width:28px; height:28px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.lc-controls .lc-play svg { width:34px; height:34px; }
+.lc-speed-row { margin-top:18px; display:flex; align-items:center; justify-content:center; gap:10px; color:#64748b; font-size:13px; }
+.lc-speed-row select { min-height:42px; border:1px solid #dfe3ee; border-radius:13px; background:#f8fafc; color:#111827; padding:0 12px; font-weight:700; }
+.lc-connect { width:100%; min-height:54px; margin-top:16px; border:1px solid #c7d2fe; border-radius:17px; background:#eef2ff; color:#4338ca; font-size:15px; font-weight:800; display:flex; align-items:center; justify-content:center; gap:9px; }
+.lc-connect svg { width:21px; height:21px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.lc-help { margin-top:16px; padding:17px 18px; border-radius:20px; background:#fff; border:1px solid #e3e7ef; color:#475569; font-size:13px; line-height:1.6; }
+.lc-help strong { display:block; margin-bottom:5px; color:#312e81; font-size:14px; }
+.lc-help b { color:#4338ca; }
+
+.lc-mini-player { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(84px + env(safe-area-inset-bottom)); z-index:46; width:min(688px,calc(100% - 24px)); min-height:66px; border:1px solid #dfe3ee; border-radius:21px; background:rgba(255,255,255,.96); backdrop-filter:blur(16px); box-shadow:0 14px 38px rgba(15,23,42,.16); display:grid; grid-template-columns:1fr 50px; align-items:center; padding:8px 9px 8px 15px; }
+.lc-mini-open { border:0; background:none; min-width:0; text-align:left; color:#111827; padding:5px 7px 5px 0; }
+.lc-mini-open b { display:block; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lc-mini-open span { display:block; margin-top:3px; color:#8a94a7; font-size:11px; }
+.lc-mini-play { width:48px; height:48px; border:0; border-radius:16px; background:#6366f1; color:#fff; display:grid; place-items:center; }
+.lc-mini-play svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+
+@media (max-width:420px) {
+  .lc-feature-card { grid-template-columns:50px 1fr 42px; padding:16px; gap:11px; }
+  .lc-feature-icon { width:50px; height:50px; border-radius:16px; }
+  .lc-feature-copy b { font-size:16px; }
+  .lc-feature-copy span { font-size:12px; }
+  .lc-feature-open { width:42px; height:42px; }
+  .lc-cover { min-height:235px; padding:24px 20px; }
+  .lc-player-card { padding-left:15px; padding-right:15px; }
+}
