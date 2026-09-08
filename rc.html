@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="TOEIC RC 25문항 연습, PDF 보기, 답안 체크와 자동 채점" />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="./style.css" />
+  <link rel="stylesheet" href="./icons.css" />
+  <link rel="stylesheet" href="./mock-test.css" />
+  <link rel="stylesheet" href="./theme-indigo.css" />
+  <title>TOEIC RC Practice</title>
+  <style>
+    .rc-set-tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0 20px}.rc-set-tabs a{display:flex;flex-direction:column;gap:3px;padding:14px 16px;border:1px solid #dfe3f5;border-radius:16px;text-decoration:none;color:#111827;background:#fff}.rc-set-tabs a.active{border-color:#6366f1;background:#eef2ff}.rc-set-tabs small{color:#7c8499}.rc-result-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.rc-result-grid span{padding:12px 8px;border-radius:14px;background:#f5f6fb;text-align:center}.rc-result-grid b{display:block;font-size:20px}.rc-note{font-size:13px;color:#667085;line-height:1.55}
+  </style>
+</head>
+<body>
+  <div class="app-shell mock-app-shell">
+    <header class="topbar">
+      <a class="brand mock-back-brand" href="./index.html" aria-label="단어 학습 홈으로">
+        <span class="brand-mark">T</span>
+        <span><b>TOEIC RC PRACTICE</b><small>25 questions</small></span>
+      </a>
+      <a class="mock-home-link" href="./mock.html">
+        <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        모의고사
+      </a>
+    </header>
+
+    <main class="view mock-view">
+      <div class="page-title mock-title-row">
+        <div>
+          <p class="eyebrow">RC PRACTICE</p>
+          <h1 id="testTitle">RC 연습 1</h1>
+          <p>PDF를 현재 기기에 한 번 저장하고, Part 5·6·7을 답안지에서 바로 풀어 자동 채점할 수 있습니다.</p>
+        </div>
+        <div id="timerBox" class="mock-time-box">
+          <span>남은 시간</span>
+          <strong id="timeValue">00:30:00</strong>
+        </div>
+      </div>
+
+      <div class="rc-set-tabs">
+        <a id="setV1" href="./rc.html?set=v1"><b>RC 연습 1</b><small>JKCB v1 · 25문항</small></a>
+        <a id="setV2" href="./rc.html?set=v2"><b>RC 연습 2</b><small>JKCB v2 · 25문항</small></a>
+      </div>
+
+      <section class="mock-file-card">
+        <div class="mock-file-head">
+          <div>
+            <span id="presetName" class="mock-badge">JKCB v1</span>
+            <h2>문제 PDF</h2>
+            <small class="mock-preset-subtitle">문제 파일은 서버가 아니라 이 기기에만 저장됩니다.</small>
+          </div>
+          <button id="clearFilesBtn" class="text-button">저장 파일 삭제</button>
+        </div>
+        <label id="pdfUpload" class="mock-upload">
+          <input id="pdfInput" type="file" accept="application/pdf,.pdf" />
+          <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+          <span><b id="pdfStatus">문제 PDF 선택</b><small id="pdfName">RC Practice.pdf</small></span>
+        </label>
+      </section>
+
+      <div class="mock-control-row">
+        <button id="timerBtn" class="primary icon-text-btn">
+          <svg id="timerIconPlay" class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>
+          <svg id="timerIconPause" class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M8 5h3v14H8zM13 5h3v14h-3z"/></svg>
+          <span id="timerBtnText">연습 시작</span>
+        </button>
+        <button id="timerResetBtn">타이머 초기화</button>
+        <button id="nextBlankBtn">다음 미답</button>
+      </div>
+
+      <div class="mock-progress-card">
+        <div><span>답안 작성</span><strong><span id="answeredCount">0</span> / 25</strong></div>
+        <div class="mock-progress-track"><i id="progressFill" style="width:0%"></i></div>
+        <small>미답 <span id="remainingCount">25</span>문항</small>
+      </div>
+
+      <div class="mock-layout">
+        <section class="mock-paper-panel">
+          <div class="mock-panel-head"><h2>문제지</h2></div>
+          <iframe id="pdfFrame" class="mock-pdf" title="RC 문제 PDF" hidden></iframe>
+          <div id="pdfEmpty" class="mock-pdf-empty">
+            <svg class="empty-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
+            <b>위에서 RC 문제 PDF를 선택하세요.</b>
+            <span>저장 후에는 같은 휴대폰에서 다시 선택하지 않아도 됩니다.</span>
+          </div>
+        </section>
+
+        <section class="mock-answer-panel">
+          <div class="mock-panel-head">
+            <div><h2>답안지</h2><small>Part 5 · Part 6 · Part 7</small></div>
+            <button id="resetAnswersBtn" class="text-button">답안 초기화</button>
+          </div>
+          <div id="partTabs" class="mock-part-tabs"></div>
+          <div id="answerList" class="mock-answer-list"></div>
+
+          <div id="resultBox" class="mock-score-card" hidden>
+            <p class="eyebrow">RESULT</p>
+            <div class="mock-score-main"><strong id="scoreTotal">0</strong><span>/ 25 정답</span></div>
+            <div class="rc-result-grid">
+              <span><b id="scoreP5">0</b>Part 5</span>
+              <span><b id="scoreP6">0</b>Part 6</span>
+              <span><b id="scoreP7">0</b>Part 7</span>
+            </div>
+            <p class="rc-note">채점 후 정답은 답안지에 표시됩니다. 틀린 답은 별도로 강조됩니다.</p>
+            <button id="wrongBtn">첫 오답 보기</button>
+          </div>
+
+          <button id="scoreBtn" class="mock-score-btn">채점하기</button>
+        </section>
+      </div>
+    </main>
+  </div>
+  <script src="./rc.js"></script>
+</body>
+</html>
