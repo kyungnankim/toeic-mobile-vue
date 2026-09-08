@@ -1,5 +1,5 @@
 (() => {
-  const DATA_URL = '/data/lc-sentences-400.gz.b64'
+  const DATA_URL = '/api/lc400'
   const STATE_KEY = 'toeic-lc400-state-v1'
   const DB_NAME = 'toeic-lc400-audio-v1'
   const STORE = 'tracks'
@@ -367,13 +367,9 @@
   }
 
   async function init(){
-    const res=await fetch(DATA_URL,{cache:'no-store'})
+    const res=await fetch(DATA_URL,{cache:'force-cache'})
     if(!res.ok) throw new Error('data load failed')
-    const b64=(await res.text()).trim()
-    const bytes=Uint8Array.from(atob(b64),c=>c.charCodeAt(0))
-    if(!('DecompressionStream' in window)) throw new Error('gzip unsupported')
-    const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))
-    data=JSON.parse(await new Response(stream).text())
+    data=await res.json()
     if(data.total!==400||data.sections.length!==40) throw new Error('data validation failed')
     sectionIndex=Math.max(0,Math.min(39,Number(state.sectionIndex||0)))
     sentenceIndex=Math.max(0,Math.min(9,Number(state.sentenceIndex||0)))
