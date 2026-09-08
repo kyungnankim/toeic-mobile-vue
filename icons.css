@@ -13,13 +13,13 @@
 .ui-icon { width: 20px; height: 20px; }
 .icon-button { display: grid; place-items: center; cursor: pointer; }
 .icon-button .ui-icon { width: 21px; height: 21px; }
-.icon-button.on .ui-icon { color: #15803d; }
+.icon-button.on .ui-icon { color: #4f46e5; }
 
 .speaker-big {
   display: grid;
   place-items: center;
   cursor: pointer;
-  color: #15803d;
+  color: #4f46e5;
   transition: transform .16s ease, background .16s ease;
 }
 .speaker-big:active { transform: scale(.95); }
@@ -75,7 +75,7 @@
 .empty-icon {
   width: 30px;
   height: 30px;
-  color: #22c55e;
+  color: #6366f1;
   stroke-width: 1.7;
 }
 
@@ -95,8 +95,36 @@
   line-height: 1;
 }
 
+/* Indigo / navy theme */
+body { background: #f5f6ff; }
+.app-shell { background: #f8f9ff; }
+.topbar { background: rgba(248,249,255,.94); }
+.brand-mark { background: #312e81; }
+.hero-card {
+  background: radial-gradient(circle at 90% 12%, rgba(129,140,248,.36), transparent 30%), linear-gradient(145deg,#111827 0%,#312e81 100%);
+  box-shadow: 0 20px 44px rgba(49,46,129,.18);
+}
+.hero-card .eyebrow { color: #c7d2fe; }
+.hero-card h1 span { color: #a5b4fc; }
+.primary { background: #6366f1; color: #fff; }
+.overall-bar i,
+.mini-bar i,
+.study-progress i { background: #6366f1; }
+.day-card-head b { color: #4f46e5; }
+.icon-button.on { background: #eef2ff; border-color: #c7d2fe; }
+.study-progress-row span:last-child { color: #4f46e5; }
+.word-card::after { background: #eef2ff; }
+.status-pill { background: #eef2ff; color: #3730a3; }
+.speaker-big { background: #eef2ff; }
+.rate-row input { accent-color: #6366f1; }
+.known-btn { background: #6366f1; color: #fff; }
+.quiz-options button.correct { background: #eef2ff; border-color: #818cf8; }
+.quiz-result.success { background: #eef2ff; color: #3730a3; }
+.page-title h1 span { color: #6366f1; }
+.bottom-nav button.active { color: #4f46e5; }
+
 @media (hover: hover) {
   .icon-button:hover,
   .mini-speaker:hover { background: #f8fafc; }
-  .speaker-big:hover { background: #dcfce7; }
+  .speaker-big:hover { background: #e0e7ff; }
 }
