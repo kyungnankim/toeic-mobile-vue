@@ -7,7 +7,7 @@
 - 총 **2,078개 단어/표현**
 - `Day 1~30(1).pdf`의 각 DAY 학습표 기준
 - TEST 페이지는 동일 DAY 단어의 시험용 반복이므로 중복 추가하지 않음
-- 데이터는 `data/words-*.json` 6개 파일로 분할 저장
+- 데이터는 `data/words-*.json` 10개 파일로 분할 저장
 - 데이터 검증 상세: `DATA_VALIDATION.md`
 
 ## 기능
