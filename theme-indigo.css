@@ -91,17 +91,13 @@ body { background: #eef1f7; color: var(--ink); }
 .word-card::after { width: 230px; height: 230px; right: -118px; top: -118px; }
 .status-pill { left: 20px; top: 20px; padding: 8px 11px; font-size: 11px; }
 
-/* WORD / MEANING labels must match */
+/* hide WORD / MEANING text labels */
 .word-label,
-.meaning-box small {
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 850;
-  letter-spacing: .14em;
-  line-height: 1;
+.meaning-title-row small {
+  display: none !important;
 }
-.word-label { margin: 18px 0 12px; }
 .word-card h2 {
+  margin-top: 18px;
   font-size: clamp(46px, 12vw, 62px);
   line-height: 1.04;
   letter-spacing: -.045em;
@@ -205,7 +201,6 @@ body { background: #eef1f7; color: var(--ink); }
   .meaning-toggle-btn { font-size: 14px; padding: 8px 10px; }
 
   .word-card { min-height: 410px; padding: 26px 20px 28px; }
-  .word-label, .meaning-box small { font-size: 12.5px; }
   .word-card h2 { font-size: clamp(44px, 12.5vw, 58px); }
   .meaning-box p { font-size: 21px; }
   .speaker-big, .meaning-sound-btn { width: 46px; height: 46px; min-width: 46px; min-height: 46px; }
