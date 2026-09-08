@@ -4,20 +4,21 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
-  <meta name="description" content="TOEIC 200문항 모의고사, 듣기, 타이머, 답안 체크와 자동 채점" />
+  <meta name="description" content="TOEIC RC 문제를 웹에서 직접 풀고 자동 채점하는 모바일 연습 사이트" />
   <link rel="icon" href="./icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="./style.css" />
   <link rel="stylesheet" href="./icons.css" />
   <link rel="stylesheet" href="./mock-test.css" />
+  <link rel="stylesheet" href="./rc.css" />
   <link rel="stylesheet" href="./theme-indigo.css" />
-  <title>TOEIC 모의고사</title>
+  <title>TOEIC RC Practice</title>
 </head>
 <body>
   <div class="app-shell mock-app-shell">
     <header class="topbar">
       <a class="brand mock-back-brand" href="./index.html" aria-label="단어 학습 홈으로">
         <span class="brand-mark">T</span>
-        <span><b>TOEIC MOCK TEST</b><small>200 questions</small></span>
+        <span><b>TOEIC RC</b><small>문제 직접 풀기</small></span>
       </a>
       <a class="mock-home-link" href="./index.html">
         <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
@@ -25,115 +26,58 @@
       </a>
     </header>
 
-    <main class="view mock-view">
-      <div class="page-title mock-title-row">
+    <main class="view rc-view">
+      <section class="rc-hero">
         <div>
-          <p class="eyebrow">MOCK TEST</p>
-          <h1>토익 모의고사</h1>
-          <p>문제 PDF와 듣기 파일을 한 번 선택하면 이 기기에 저장됩니다. 답안 체크, 120분 타이머, LC/RC 자동 채점까지 사용할 수 있습니다.</p>
+          <p class="eyebrow">RC PRACTICE</p>
+          <h1>문제를<br>바로 풀어요</h1>
+          <p>문제·보기·지문을 사이트 데이터에 넣었습니다. PDF 업로드 없이 바로 풀고 자동 채점할 수 있습니다.</p>
         </div>
-        <div id="timerBox" class="mock-time-box">
+        <div class="rc-time-box">
           <span>남은 시간</span>
-          <strong id="timeValue">02:00:00</strong>
+          <strong id="timeValue">30:00</strong>
+          <button id="timerBtn">시작</button>
         </div>
-      </div>
-
-      <div class="mock-preset-tabs">
-        <button class="preset-tab" data-preset="nexus">
-          <b>모의고사 1</b><span>넥서스 · 자동 채점</span>
-        </button>
-        <button class="preset-tab" data-preset="test1">
-          <b>모의고사 2</b><span>TOEIC Test 1 · 자동 채점</span>
-        </button>
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:0 0 13px">
-        <a class="mock-key-btn" href="./rc.html?set=v1" style="display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box">RC 연습 1 · 25문항</a>
-        <a class="mock-key-btn" href="./rc.html?set=v2" style="display:flex;align-items:center;justify-content:center;text-decoration:none;box-sizing:border-box">RC 연습 2 · 25문항</a>
-      </div>
-
-      <section class="mock-file-card">
-        <div class="mock-file-head">
-          <div>
-            <span id="presetName" class="mock-badge">넥서스 토익 모의고사</span>
-            <h2>시험 자료</h2>
-            <small id="presetSubtitle" class="mock-preset-subtitle">문제 PDF + 듣기 MP3 + 자동 채점</small>
-          </div>
-          <button id="clearFilesBtn" class="text-button">저장 파일 삭제</button>
-        </div>
-        <p class="mock-local-note">PDF와 MP3는 서버에 업로드하지 않고 <b>현재 휴대폰·PC 브라우저에만 저장</b>됩니다.</p>
-        <div class="mock-file-grid">
-          <label id="pdfUpload" class="mock-upload">
-            <input id="pdfInput" type="file" accept="application/pdf,.pdf" />
-            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg>
-            <span><b id="pdfStatus">문제 PDF 선택</b><small id="pdfName">토익 모의고사 문제.pdf</small></span>
-          </label>
-          <label id="audioUpload" class="mock-upload">
-            <input id="audioInput" type="file" accept="audio/*,.mp3" />
-            <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l10-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="16" cy="16" r="3"/></svg>
-            <span><b id="audioStatus">듣기 MP3 선택</b><small id="audioName">토익 모의고사 듣기.mp3</small></span>
-          </label>
-        </div>
-        <audio id="audioPlayer" class="mock-audio" controls preload="metadata" hidden></audio>
       </section>
 
-      <div class="mock-control-row">
-        <button id="timerBtn" class="primary icon-text-btn">
-          <svg id="timerIconPlay" class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7V5Z"/></svg>
-          <svg id="timerIconPause" class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="M8 5h3v14H8zM13 5h3v14h-3z"/></svg>
-          <span id="timerBtnText">시험 시작</span>
-        </button>
-        <button id="timerResetBtn">타이머 초기화</button>
-        <button id="nextBlankBtn">다음 미답</button>
+      <div class="rc-set-tabs">
+        <button class="rc-set-tab active" data-set="v1"><b>RC 연습 1</b><span>25문항 · Part 5–7</span></button>
+        <button class="rc-set-tab" data-set="v2"><b>RC 연습 2</b><span>25문항 · Part 5–7</span></button>
       </div>
 
-      <div class="mock-progress-card">
-        <div><span>답안 작성</span><strong><span id="answeredCount">0</span> / 200</strong></div>
+      <section class="rc-status-card">
+        <div>
+          <span id="setTitle">JKCB TOEIC RC Practice 1</span>
+          <strong><span id="answeredCount">0</span> / <span id="totalCount">25</span></strong>
+        </div>
         <div class="mock-progress-track"><i id="progressFill" style="width:0%"></i></div>
-        <small>미답 <span id="remainingCount">200</span>문항</small>
-      </div>
+        <div class="rc-status-actions">
+          <div id="partTabs" class="rc-part-tabs"></div>
+          <button id="nextBlankBtn">다음 미답</button>
+        </div>
+      </section>
 
-      <div class="mock-layout">
-        <section class="mock-paper-panel">
-          <div class="mock-panel-head">
-            <h2>문제지</h2>
-            <div class="mock-paper-actions">
-              <button id="quickKeyBtn" hidden>Quick Key 보기</button>
-              <button id="pdfResetBtn" hidden>문제지 처음으로</button>
-            </div>
-          </div>
-          <iframe id="pdfFrame" class="mock-pdf" title="TOEIC 문제 PDF" hidden></iframe>
-          <div id="pdfEmpty" class="mock-pdf-empty">
-            <svg class="empty-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>
-            <b>위에서 문제 PDF를 선택하세요.</b>
-            <span>한 번 저장하면 다음 방문에도 같은 기기에서 자동으로 다시 불러옵니다.</span>
-          </div>
-        </section>
+      <section id="resultBox" class="rc-result-card" hidden>
+        <div>
+          <p class="eyebrow">RESULT</p>
+          <strong><span id="scoreValue">0</span> / 25</strong>
+          <span id="scorePercent">0%</span>
+        </div>
+        <div class="rc-result-grid">
+          <span><b id="part5Score">0/15</b>Part 5</span>
+          <span><b id="part6Score">0/4</b>Part 6</span>
+          <span><b id="part7Score">0/6</b>Part 7</span>
+        </div>
+      </section>
 
-        <section class="mock-answer-panel">
-          <div class="mock-panel-head">
-            <div><h2>답안지</h2><small>Part별로 빠르게 체크</small></div>
-            <button id="resetAnswersBtn" class="text-button">답안 초기화</button>
-          </div>
-          <div id="partTabs" class="mock-part-tabs"></div>
-          <div id="answerList" class="mock-answer-list"></div>
+      <section id="questionArea" class="rc-question-area" aria-live="polite"></section>
 
-          <div id="resultBox" class="mock-score-card" hidden>
-            <p class="eyebrow">RESULT</p>
-            <div class="mock-score-main"><strong id="scoreTotal">0</strong><span>/ 200 정답</span></div>
-            <div class="mock-score-grid">
-              <span><b id="scoreLC">0</b>LC / 100</span>
-              <span><b id="scoreRC">0</b>RC / 100</span>
-              <span><b id="scoreBlank">0</b>미답</span>
-            </div>
-            <button id="wrongBtn">첫 오답 보기</button>
-          </div>
-
-          <button id="scoreBtn" class="mock-score-btn">채점하기</button>
-        </section>
+      <div class="rc-bottom-actions">
+        <button id="resetBtn">답안 초기화</button>
+        <button id="scoreBtn" class="primary">채점하기</button>
       </div>
     </main>
   </div>
-  <script src="./mock.js"></script>
+  <script src="./rc.js"></script>
 </body>
 </html>
