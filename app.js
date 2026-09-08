@@ -14,6 +14,8 @@ createApp({
     const showMeaning = ref(true)
     const autoSpeak = ref(true)
     const autoPlay = ref(false)
+    const autoPreparing = ref(false)
+    const autoBuildProgress = ref(0)
     const speechRate = ref(0.9)
     const koreanRate = ref(0.95)
     const searchText = ref('')
@@ -23,8 +25,12 @@ createApp({
     const touchStartX = ref(0)
     const ready = ref(false)
 
-    let sequenceId = 0
     let autoAudio = null
+    let autoTrackUrl = ''
+    let autoTrackKey = ''
+    let autoTrackDay = 0
+    let autoTrackStartIndex = 0
+    let autoTimeline = []
     let restoredUi = null
 
     const state = ref({ status: {}, wrong: [], lastDay: 1, lastIndex: 0 })
@@ -152,12 +158,6 @@ createApp({
       return autoAudio
     }
 
-    function remoteTtsUrl(text, lang) {
-      const q = String(text || '').slice(0, 190)
-      const tl = lang.toLowerCase().startsWith('ko') ? 'ko-KR' : 'en-US'
-      return `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=${encodeURIComponent(tl)}&q=${encodeURIComponent(q)}`
-    }
-
     function setMediaPlaybackState(value) {
       try {
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = value
@@ -175,98 +175,287 @@ createApp({
       } catch (_) {}
     }
 
-    function stopAutoAudio() {
-      if (!autoAudio) return
-      autoAudio.onended = null
-      autoAudio.onerror = null
-      try { autoAudio.pause() } catch (_) {}
-      try { autoAudio.removeAttribute('src'); autoAudio.load() } catch (_) {}
+    function revokeTrack() {
+      if (autoTrackUrl) {
+        try { URL.revokeObjectURL(autoTrackUrl) } catch (_) {}
+      }
+      autoTrackUrl = ''
+      autoTrackKey = ''
+      autoTrackDay = 0
+      autoTrackStartIndex = 0
+      autoTimeline = []
     }
 
-    function playMediaTts(text, lang, rate, token, onDone) {
-      if (!autoPlay.value || token !== sequenceId || !text) return
-      const audio = ensureAutoAudio()
-      audio.onended = null
-      audio.onerror = null
-      audio.src = remoteTtsUrl(text, lang)
-      audio.playbackRate = Math.max(0.65, Math.min(1.3, Number(rate) || 1))
-      try { audio.preservesPitch = true } catch (_) {}
+    function stopAutoAudio(clearTrack = false) {
+      if (autoAudio) {
+        try { autoAudio.pause() } catch (_) {}
+        autoAudio.ontimeupdate = null
+        autoAudio.onended = null
+        autoAudio.onerror = null
+        if (clearTrack) {
+          try { autoAudio.removeAttribute('src'); autoAudio.load() } catch (_) {}
+        }
+      }
+      autoPlay.value = false
+      setMediaPlaybackState('paused')
+      if (clearTrack) revokeTrack()
+    }
 
-      let completed = false
-      const done = () => {
-        if (completed) return
-        completed = true
-        if (autoPlay.value && token === sequenceId && onDone) onDone()
-      }
-      audio.onended = done
-      audio.onerror = () => {
-        if (!autoPlay.value || token !== sequenceId) return
-        speakText(text, lang, rate, done, false)
-      }
-      const promise = audio.play()
-      if (promise?.catch) promise.catch(() => {
-        if (!autoPlay.value || token !== sequenceId) return
-        speakText(text, lang, rate, done, false)
+    function ttsApiUrl(text, lang) {
+      return `/api/tts?lang=${encodeURIComponent(lang)}&text=${encodeURIComponent(String(text || '').slice(0, 190))}`
+    }
+
+    function openAudioDb() {
+      return new Promise((resolve, reject) => {
+        if (!('indexedDB' in window)) return resolve(null)
+        const req = indexedDB.open('toeic-audio-cache-v1', 1)
+        req.onupgradeneeded = () => {
+          const db = req.result
+          if (!db.objectStoreNames.contains('tracks')) db.createObjectStore('tracks')
+        }
+        req.onsuccess = () => resolve(req.result)
+        req.onerror = () => reject(req.error)
       })
     }
 
-    function cancelSequence(keepAutoPlay = false) {
-      sequenceId += 1
-      stopAutoAudio()
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel()
-      if (!keepAutoPlay) {
+    async function getCachedTrack(key) {
+      try {
+        const db = await openAudioDb()
+        if (!db) return null
+        return await new Promise((resolve, reject) => {
+          const tx = db.transaction('tracks', 'readonly')
+          const req = tx.objectStore('tracks').get(key)
+          req.onsuccess = () => resolve(req.result || null)
+          req.onerror = () => reject(req.error)
+        })
+      } catch (_) {
+        return null
+      }
+    }
+
+    async function putCachedTrack(key, value) {
+      try {
+        const db = await openAudioDb()
+        if (!db) return
+        await new Promise((resolve, reject) => {
+          const tx = db.transaction('tracks', 'readwrite')
+          tx.objectStore('tracks').put(value, key)
+          tx.oncomplete = resolve
+          tx.onerror = () => reject(tx.error)
+        })
+      } catch (_) {}
+    }
+
+    async function mapLimit(list, limit, worker) {
+      const results = new Array(list.length)
+      let cursor = 0
+      const runners = Array.from({ length: Math.min(limit, list.length) }, async () => {
+        while (true) {
+          const i = cursor++
+          if (i >= list.length) return
+          results[i] = await worker(list[i], i)
+        }
+      })
+      await Promise.all(runners)
+      return results
+    }
+
+    async function fetchDecodedClip(ctx, text, lang) {
+      const response = await fetch(ttsApiUrl(text, lang), { cache: 'force-cache' })
+      if (!response.ok) throw new Error(`TTS ${response.status}`)
+      const buffer = await response.arrayBuffer()
+      return await ctx.decodeAudioData(buffer.slice(0))
+    }
+
+    function encodeWav(audioBuffer) {
+      const channel = audioBuffer.getChannelData(0)
+      const sampleRate = audioBuffer.sampleRate
+      const dataLength = channel.length * 2
+      const array = new ArrayBuffer(44 + dataLength)
+      const view = new DataView(array)
+      const write = (offset, value) => {
+        for (let i = 0; i < value.length; i++) view.setUint8(offset + i, value.charCodeAt(i))
+      }
+      write(0, 'RIFF')
+      view.setUint32(4, 36 + dataLength, true)
+      write(8, 'WAVE')
+      write(12, 'fmt ')
+      view.setUint32(16, 16, true)
+      view.setUint16(20, 1, true)
+      view.setUint16(22, 1, true)
+      view.setUint32(24, sampleRate, true)
+      view.setUint32(28, sampleRate * 2, true)
+      view.setUint16(32, 2, true)
+      view.setUint16(34, 16, true)
+      write(36, 'data')
+      view.setUint32(40, dataLength, true)
+      let offset = 44
+      for (let i = 0; i < channel.length; i++, offset += 2) {
+        const s = Math.max(-1, Math.min(1, channel[i]))
+        view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true)
+      }
+      return new Blob([array], { type: 'audio/wav' })
+    }
+
+    async function buildContinuousTrack(startIndex) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext
+      const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext
+      if (!AudioCtx || !OfflineCtx) throw new Error('오디오 변환을 지원하지 않는 브라우저입니다.')
+
+      const list = dayWords.value.slice(startIndex)
+      if (!list.length) throw new Error('재생할 단어가 없습니다.')
+      const key = `day${selectedDay.value}-from${startIndex}-en${speechRate.value}-ko${koreanRate.value}-v2`
+      const cached = await getCachedTrack(key)
+      if (cached?.blob && cached?.timeline) return { ...cached, key }
+
+      autoPreparing.value = true
+      autoBuildProgress.value = 1
+      const ctx = new AudioCtx()
+      try {
+        let completed = 0
+        const clips = await mapLimit(list, 3, async item => {
+          const [en, ko] = await Promise.all([
+            fetchDecodedClip(ctx, item.word, 'en-US'),
+            fetchDecodedClip(ctx, item.meaning, 'ko-KR')
+          ])
+          completed += 1
+          autoBuildProgress.value = Math.max(2, Math.round(completed / list.length * 70))
+          return { en, ko }
+        })
+
+        const enGap = 0.22
+        const wordGap = 0.62
+        let totalDuration = 0
+        const timeline = []
+        clips.forEach((clip, i) => {
+          const enDuration = clip.en.duration / Math.max(0.65, speechRate.value)
+          const koDuration = clip.ko.duration / Math.max(0.7, koreanRate.value)
+          const start = totalDuration
+          totalDuration += enDuration + enGap + koDuration + wordGap
+          timeline.push({ index: startIndex + i, start, end: totalDuration })
+        })
+
+        const sampleRate = 24000
+        const offline = new OfflineCtx(1, Math.max(1, Math.ceil(totalDuration * sampleRate)), sampleRate)
+        let cursor = 0
+        clips.forEach(clip => {
+          const en = offline.createBufferSource()
+          en.buffer = clip.en
+          en.playbackRate.value = Math.max(0.65, speechRate.value)
+          en.connect(offline.destination)
+          en.start(cursor)
+          cursor += clip.en.duration / Math.max(0.65, speechRate.value) + enGap
+
+          const ko = offline.createBufferSource()
+          ko.buffer = clip.ko
+          ko.playbackRate.value = Math.max(0.7, koreanRate.value)
+          ko.connect(offline.destination)
+          ko.start(cursor)
+          cursor += clip.ko.duration / Math.max(0.7, koreanRate.value) + wordGap
+        })
+
+        autoBuildProgress.value = 78
+        const rendered = await offline.startRendering()
+        autoBuildProgress.value = 92
+        const blob = encodeWav(rendered)
+        const value = { blob, timeline, day: selectedDay.value, startIndex, createdAt: Date.now() }
+        await putCachedTrack(key, value)
+        autoBuildProgress.value = 100
+        return { ...value, key }
+      } finally {
+        try { await ctx.close() } catch (_) {}
+        autoPreparing.value = false
+      }
+    }
+
+    function attachTrack(track) {
+      stopAutoAudio(true)
+      const audio = ensureAutoAudio()
+      autoTrackUrl = URL.createObjectURL(track.blob)
+      autoTrackKey = track.key
+      autoTrackDay = track.day
+      autoTrackStartIndex = track.startIndex
+      autoTimeline = track.timeline
+      audio.src = autoTrackUrl
+      audio.playbackRate = 1
+      audio.currentTime = 0
+
+      audio.ontimeupdate = () => {
+        if (!autoTimeline.length) return
+        const t = audio.currentTime
+        const point = autoTimeline.find(p => t >= p.start && t < p.end) || autoTimeline[autoTimeline.length - 1]
+        if (point && point.index !== currentIndex.value) {
+          currentIndex.value = point.index
+          state.value.lastIndex = point.index
+          save()
+          updateMediaMetadata()
+        }
+      }
+      audio.onended = () => {
+        const last = autoTimeline[autoTimeline.length - 1]
+        if (last) {
+          currentIndex.value = last.index
+          state.value.lastIndex = last.index
+          save()
+        }
+        autoPlay.value = false
+        setMediaPlaybackState('paused')
+      }
+      audio.onerror = () => {
         autoPlay.value = false
         setMediaPlaybackState('paused')
       }
     }
 
-    function speak(text) {
-      cancelSequence(false)
-      speakText(text, 'en-US', speechRate.value)
-    }
-
-    function speakMeaning(text) {
-      cancelSequence(false)
-      speakText(text, 'ko-KR', koreanRate.value)
-    }
-
-    function finishAutoSequence() {
-      autoPlay.value = false
-      stopAutoAudio()
-      setMediaPlaybackState('paused')
-      saveUi()
-    }
-
-    function runAutoSequence() {
-      if (!autoPlay.value || activeView.value !== 'study' || !currentWord.value) return
-      cancelSequence(true)
-      const token = sequenceId
-      const item = currentWord.value
-      updateMediaMetadata()
-      setMediaPlaybackState('playing')
-
-      playMediaTts(item.word, 'en-US', speechRate.value, token, () => {
-        playMediaTts(item.meaning, 'ko-KR', koreanRate.value, token, () => {
-          if (!autoPlay.value || token !== sequenceId) return
-          if (currentIndex.value >= dayWords.value.length - 1) {
-            finishAutoSequence()
-            return
-          }
-          currentIndex.value += 1
-          state.value.lastIndex = currentIndex.value
-          save()
-          nextTick(() => runAutoSequence())
-        })
-      })
-    }
-
-    function toggleAutoPlay() {
-      if (autoPlay.value) {
-        cancelSequence(false)
+    async function startContinuousAuto() {
+      if (autoPreparing.value) return
+      if (autoAudio && autoTrackDay === selectedDay.value && autoTrackUrl && autoAudio.currentTime > 0 && !autoAudio.ended) {
+        autoPlay.value = true
+        updateMediaMetadata()
+        setMediaPlaybackState('playing')
+        await autoAudio.play()
         return
       }
-      autoPlay.value = true
-      runAutoSequence()
+
+      const startIndex = currentIndex.value
+      try {
+        const track = await buildContinuousTrack(startIndex)
+        attachTrack(track)
+        autoPlay.value = true
+        updateMediaMetadata()
+        setMediaPlaybackState('playing')
+        await autoAudio.play()
+      } catch (error) {
+        console.error(error)
+        autoPlay.value = false
+        autoPreparing.value = false
+        setMediaPlaybackState('paused')
+        alert('백그라운드 오디오를 준비하지 못했습니다. 인터넷 연결 후 다시 시도해 주세요.')
+      }
+    }
+
+    async function toggleAutoPlay() {
+      if (autoPreparing.value) return
+      if (autoPlay.value) {
+        if (autoAudio) autoAudio.pause()
+        autoPlay.value = false
+        setMediaPlaybackState('paused')
+        return
+      }
+      await startContinuousAuto()
+    }
+
+    function seekPrepared(step) {
+      if (!autoAudio || !autoTimeline.length || autoTrackDay !== selectedDay.value) return false
+      const next = currentIndex.value + step
+      const point = autoTimeline.find(p => p.index === next)
+      if (!point) return false
+      currentIndex.value = next
+      state.value.lastIndex = next
+      autoAudio.currentTime = point.start
+      save()
+      updateMediaMetadata()
+      return true
     }
 
     function setupMediaSession() {
@@ -274,21 +463,39 @@ createApp({
       const setHandler = (name, handler) => {
         try { navigator.mediaSession.setActionHandler(name, handler) } catch (_) {}
       }
-      setHandler('play', () => {
-        if (activeView.value !== 'study') return
-        if (!autoPlay.value) {
-          autoPlay.value = true
-          runAutoSequence()
-        }
+      setHandler('play', () => startContinuousAuto())
+      setHandler('pause', () => {
+        if (autoAudio) autoAudio.pause()
+        autoPlay.value = false
+        setMediaPlaybackState('paused')
       })
-      setHandler('pause', () => cancelSequence(false))
       setHandler('nexttrack', () => move(1))
       setHandler('previoustrack', () => move(-1))
-      setHandler('stop', () => cancelSequence(false))
+      setHandler('stop', () => stopAutoAudio(false))
+    }
+
+    function speak(text) {
+      if (autoPlay.value && autoAudio) autoAudio.pause()
+      autoPlay.value = false
+      setMediaPlaybackState('paused')
+      speakText(text, 'en-US', speechRate.value)
+    }
+
+    function speakMeaning(text) {
+      if (autoPlay.value && autoAudio) autoAudio.pause()
+      autoPlay.value = false
+      setMediaPlaybackState('paused')
+      speakText(text, 'ko-KR', koreanRate.value)
+    }
+
+    function clearPreparedTrack() {
+      stopAutoAudio(true)
+      autoPreparing.value = false
+      autoBuildProgress.value = 0
     }
 
     function openDay(day, index = 0) {
-      cancelSequence(false)
+      clearPreparedTrack()
       selectedDay.value = day
       const list = words.value.filter(w => w.day === day)
       currentIndex.value = Math.max(0, Math.min(index, list.length - 1))
@@ -309,21 +516,15 @@ createApp({
     }
 
     function move(step) {
-      const wasAuto = autoPlay.value
-      cancelSequence(wasAuto)
       const next = currentIndex.value + step
-      if (next < 0 || next >= dayWords.value.length) {
-        if (wasAuto) finishAutoSequence()
-        return
-      }
+      if (next < 0 || next >= dayWords.value.length) return
+      if (seekPrepared(step)) return
+
+      clearPreparedTrack()
       currentIndex.value = next
       state.value.lastIndex = next
       save()
-      nextTick(() => {
-        updateMediaMetadata()
-        if (wasAuto) runAutoSequence()
-        else if (autoSpeak.value) speakText(currentWord.value?.word, 'en-US', speechRate.value)
-      })
+      nextTick(() => { if (autoSpeak.value) speakText(currentWord.value?.word, 'en-US', speechRate.value) })
     }
 
     function mark(status) {
@@ -349,7 +550,7 @@ createApp({
     }
 
     function makeQuiz(day = selectedDay.value) {
-      cancelSequence(false)
+      clearPreparedTrack()
       selectedDay.value = day
       const pool = words.value.filter(w => w.day === day)
       if (!pool.length) return
@@ -412,14 +613,16 @@ createApp({
     })
 
     watch([speechRate, koreanRate, autoSpeak, showMeaning], () => {
-      if (ready.value) save()
+      if (!ready.value) return
+      save()
+      if (autoTrackUrl) clearPreparedTrack()
     })
 
     watch(searchText, () => { if (ready.value) saveUi() })
     watch([quiz, quizAnswer, quizFinished], () => { if (ready.value) saveUi() }, { deep: true })
 
     watch(activeView, view => {
-      if (view !== 'study' && autoPlay.value) cancelSequence(false)
+      if (view !== 'study' && (autoPlay.value || autoTrackUrl)) clearPreparedTrack()
       if (ready.value) saveUi()
     })
 
@@ -441,13 +644,6 @@ createApp({
     onMounted(async () => {
       load()
       setupMediaSession()
-
-      document.addEventListener('visibilitychange', () => {
-        if (autoPlay.value) {
-          updateMediaMetadata()
-          setMediaPlaybackState('playing')
-        }
-      })
 
       window.addEventListener('hashchange', () => {
         const view = location.hash.replace('#', '')
@@ -497,14 +693,17 @@ createApp({
 
     window.addEventListener('beforeunload', () => {
       saveUi()
-      stopAutoAudio()
+      if (autoTrackUrl) {
+        try { URL.revokeObjectURL(autoTrackUrl) } catch (_) {}
+      }
     })
 
     return {
-      words, activeView, selectedDay, currentIndex, showMeaning, autoSpeak, autoPlay, speechRate, koreanRate, searchText,
-      quiz, quizAnswer, quizFinished, state, dayTopics, dayWords, currentWord, knownIds, reviewWords,
-      overallPercent, filteredWords, dayProgress, speak, speakMeaning, openDay, openWord, continueStudy, move, mark,
-      toggleMeaning, toggleAutoPlay, makeQuiz, answerQuiz, optionClass, studyReview, resetProgress, onTouchStart, onTouchEnd
+      words, activeView, selectedDay, currentIndex, showMeaning, autoSpeak, autoPlay, autoPreparing, autoBuildProgress,
+      speechRate, koreanRate, searchText, quiz, quizAnswer, quizFinished, state, dayTopics, dayWords, currentWord,
+      knownIds, reviewWords, overallPercent, filteredWords, dayProgress, speak, speakMeaning, openDay, openWord,
+      continueStudy, move, mark, toggleMeaning, toggleAutoPlay, makeQuiz, answerQuiz, optionClass, studyReview,
+      resetProgress, onTouchStart, onTouchEnd
     }
   }
 }).mount('#app')
