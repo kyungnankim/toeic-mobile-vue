@@ -1,0 +1,24 @@
+/* Indigo theme overrides: removes the earlier green accent palette. */
+.hero-card { background: radial-gradient(circle at 90% 12%, rgba(129,140,248,.40), transparent 30%), linear-gradient(145deg,#0f172a 0%,#312e81 100%); }
+.hero-card .eyebrow { color: #c4b5fd; }
+.hero-card h1 span { color: #c4b5fd; }
+.primary { background: #6366f1; color: #fff; }
+.overall-bar i, .mini-bar i, .study-progress i { background: #6366f1; }
+.day-card-head b { color: #4f46e5; }
+.icon-button.on { background: #eef2ff; border-color: #a5b4fc; }
+.word-card::after { background: #f5f3ff; }
+.status-pill { background: #ede9fe; color: #5b21b6; }
+.speaker-big { background: #eef2ff; color: #4f46e5; }
+.rate-row input { accent-color: #6366f1; }
+.known-btn { background: #6366f1; color: #fff; }
+.quiz-options button.correct { background: #ede9fe; border-color: #a78bfa; }
+.quiz-result.success { background: #f5f3ff; color: #5b21b6; }
+.page-title h1 span { color: #6366f1; }
+.bottom-nav button.active { color: #4f46e5; }
+.empty-icon { color: #6366f1; }
+.speaker-big:hover { background: #e0e7ff; }
+.bottom-nav { grid-template-columns: repeat(6, 1fr); }
+.bottom-nav button, .bottom-nav a { min-width: 0; border:0; background:none; color:#94a3b8; font-size:9px; font-weight:800; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; text-decoration:none; }
+.bottom-nav a .nav-icon { width:21px; height:21px; stroke-width:1.75; }
+.bottom-nav button > span, .bottom-nav a > span { font-size: 8.5px; line-height:1; }
+@media (max-width: 380px) { .bottom-nav { padding-left: 4px; padding-right: 4px; } .bottom-nav button > span, .bottom-nav a > span { font-size: 8px; } }
