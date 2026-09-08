@@ -1,0 +1,17 @@
+{
+  "name": "TOEIC 30DAY",
+  "short_name": "TOEIC30",
+  "description": "DAY 1~30 토익 단어 학습",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f172a",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
