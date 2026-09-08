@@ -4,8 +4,8 @@
   "description": "DAY 1~30 토익 단어 학습",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f8fafc",
-  "theme_color": "#0f172a",
+  "background_color": "#f8f9ff",
+  "theme_color": "#312e81",
   "icons": [
     {
       "src": "/icon.svg",
