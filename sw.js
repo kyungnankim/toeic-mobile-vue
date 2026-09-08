@@ -1,4 +1,4 @@
-const CACHE = 'toeic-30day-v16'
+const CACHE = 'toeic-30day-v17'
 const CORE = [
   '/', '/index.html', '/app.js', '/style.css', '/icons.css', '/study-controls.css', '/mock-test.css', '/rc.css', '/theme-indigo.css', '/lc.css', '/lc-player.js', '/manifest.webmanifest', '/icon.svg',
   '/mock.html', '/mock.js', '/rc.html', '/rc.js',
