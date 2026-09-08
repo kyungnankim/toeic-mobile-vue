@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/icons.css" />
   <link rel="stylesheet" href="/study-controls.css" />
+  <link rel="stylesheet" href="/theme-indigo.css" />
   <title>TOEIC 30DAY</title>
 </head>
 <body>
@@ -189,6 +190,7 @@
       <button :class="{ active: activeView === 'home' }" @click="activeView = 'home'"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg><span>홈</span></button>
       <button :class="{ active: activeView === 'study' }" @click="continueStudy"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/><path d="M8 6h8"/><path d="M8 10h6"/></svg><span>학습</span></button>
       <button :class="{ active: activeView === 'quiz' }" @click="makeQuiz(selectedDay)"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 4.1 1.7c-1.2 1-1.9 1.4-1.9 2.8"/><path d="M12 17h.01"/></svg><span>퀴즈</span></button>
+      <a class="mock-nav-link" href="/mock.html"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h16v18H4z"/><path d="M8 7h8M8 11h8M8 15h4"/><path d="m15 16 1.5 1.5L20 14"/></svg><span>모의</span></a>
       <button :class="{ active: activeView === 'review' }" @click="activeView = 'review'"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg><span>복습</span></button>
       <button :class="{ active: activeView === 'search' }" @click="activeView = 'search'"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>검색</span></button>
     </nav>
