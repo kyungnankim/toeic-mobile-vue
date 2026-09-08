@@ -1,62 +1,163 @@
-/* Indigo theme + mobile readability overrides */
-.hero-card { background: radial-gradient(circle at 90% 12%, rgba(129,140,248,.40), transparent 30%), linear-gradient(145deg,#0f172a 0%,#312e81 100%); }
-.hero-card .eyebrow { color: #c4b5fd; }
-.hero-card h1 span { color: #c4b5fd; }
-.primary { background: #6366f1; color: #fff; }
-.overall-bar i, .mini-bar i, .study-progress i { background: #6366f1; }
-.day-card-head b { color: #4f46e5; }
-.icon-button.on { background: #eef2ff; border-color: #a5b4fc; }
-.word-card::after { background: #f5f3ff; }
-.status-pill { background: #ede9fe; color: #5b21b6; }
-.speaker-big { background: #eef2ff; color: #4f46e5; }
-.rate-row input { accent-color: #6366f1; }
-.known-btn { background: #6366f1; color: #fff; }
-.quiz-options button.correct { background: #ede9fe; border-color: #a78bfa; }
-.quiz-result.success { background: #f5f3ff; color: #5b21b6; }
-.page-title h1 span { color: #6366f1; }
-.bottom-nav button.active { color: #4f46e5; }
-.empty-icon { color: #6366f1; }
-.speaker-big:hover { background: #e0e7ff; }
+/* TOEIC 30DAY — unified indigo UI */
+:root {
+  --ink: #111827;
+  --muted: #64748b;
+  --soft: #94a3b8;
+  --line: #e2e8f0;
+  --panel: #ffffff;
+  --canvas: #f7f8ff;
+  --indigo: #6366f1;
+  --indigo-dark: #4338ca;
+  --indigo-soft: #eef2ff;
+  --violet-soft: #f5f3ff;
+  --radius-lg: 22px;
+  --radius-md: 16px;
+}
 
-/* 전체 가독성 확대 */
-.topbar { height: 86px; padding: 14px 20px; }
-.brand-mark { width: 48px; height: 48px; border-radius: 15px; font-size: 27px; }
+body { background: #eef1f7; color: var(--ink); }
+.app-shell { background: var(--canvas); padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+.topbar { height: 84px; padding: 13px 20px; background: rgba(248,249,255,.96); }
 .brand { gap: 12px; }
+.brand-mark { width: 48px; height: 48px; border-radius: 15px; background: #312e81; font-size: 25px; }
 .brand b { font-size: 18px; letter-spacing: 0; }
-.brand small { font-size: 13px; margin-top: 3px; }
-.top-progress strong { font-size: 24px; }
-.top-progress span { font-size: 12px; margin-top: 4px; display:block; }
-.view { padding: 22px 20px 36px; }
+.brand small { font-size: 12px; margin-top: 3px; }
+.top-progress strong { font-size: 23px; }
+.top-progress span { display: block; margin-top: 4px; font-size: 11px; }
+
+/* indigo theme */
+.hero-card { background: radial-gradient(circle at 90% 12%, rgba(129,140,248,.38), transparent 30%), linear-gradient(145deg,#111827 0%,#312e81 100%); box-shadow: 0 20px 44px rgba(49,46,129,.18); }
+.hero-card .eyebrow, .hero-card h1 span { color: #c4b5fd; }
+.primary, .known-btn { background: var(--indigo); color: #fff; }
+.overall-bar i, .mini-bar i, .study-progress i { background: var(--indigo); }
+.day-card-head b, .study-progress-row span:last-child, .page-title h1 span { color: #4f46e5; }
+.icon-button.on { background: var(--indigo-soft); border-color: #a5b4fc; }
+.word-card::after { background: #f1f0ff; }
+.status-pill { background: #ede9fe; color: #5b21b6; }
+.speaker-big, .meaning-sound-btn { background: var(--indigo-soft); color: #4f46e5; }
+.rate-row input { accent-color: var(--indigo); }
+.quiz-options button.correct { background: #ede9fe; border-color: #a78bfa; }
+.quiz-result.success { background: var(--violet-soft); color: #5b21b6; }
+.bottom-nav button.active { color: #4f46e5; }
+
+/* global readability */
+.view { padding: 20px 20px 34px; }
 .eyebrow { font-size: 13px; }
-.hero-card { padding: 32px 26px 25px; }
-.hero-card > div > p:last-child { font-size: 16px; line-height: 1.65; }
-.hero-action { font-size: 17px; min-height: 54px; }
-.hero-stats { font-size: 13px; }
-.hero-stats b { font-size: 17px; }
-.section-head { margin-top: 32px; }
 .section-head h2, .page-title h1 { font-size: 27px; }
 .text-button { font-size: 13px; }
 .day-grid { gap: 12px; }
-.day-card { min-height: 150px; padding: 18px; border-radius: 22px; }
+.day-card { min-height: 150px; padding: 18px; border-radius: var(--radius-lg); }
 .day-card-head { font-size: 13px; }
 .day-card h3 { margin: 18px 0 16px; font-size: 19px; line-height: 1.3; }
-.day-card small { font-size: 12px; margin-top: 9px; }
-.study-toolbar { grid-template-columns: 50px 1fr 50px; }
-.icon-button { width: 50px; height: 50px; }
-.day-selector b { font-size: 19px; }
-.day-selector span { font-size: 13px; }
-.study-progress-row { font-size: 12px; grid-template-columns: 56px 1fr 48px; }
-.word-card { min-height: 460px; padding: 30px 24px 28px; }
-.word-label { font-size: 12px; }
-.meaning-hidden { font-size: 16px; min-width: 180px; min-height: 54px; }
-.meaning-box small { font-size: 11px; }
-.meaning-box p { font-size: 23px; line-height: 1.55; }
-.swipe-hint { font-size: 11px; }
-.rate-row { font-size: 13px; grid-template-columns: 110px 1fr; }
-.judge-row button { min-height: 64px; font-size: 17px; }
-.nav-row button { min-height: 50px; font-size: 13px; }
+.day-card small { margin-top: 9px; font-size: 12px; }
+
+/* study header */
+.study-view { padding-top: 14px; }
+.study-toolbar { grid-template-columns: 52px 1fr 52px; gap: 10px; margin-bottom: 15px; }
+.icon-button { width: 52px; height: 52px; border-radius: var(--radius-md); }
+.icon-button .ui-icon { width: 23px; height: 23px; }
+.day-selector b { font-size: 20px; }
+.day-selector span { margin-top: 3px; font-size: 13px; }
+.study-progress-row { grid-template-columns: 58px 1fr 50px; gap: 12px; margin: 12px 4px 18px; font-size: 12px; }
+.study-progress { height: 6px; }
+
+/* auto / meaning controls — one visual system */
+.study-mode-panel {
+  grid-template-columns: minmax(0, 1.55fr) minmax(145px, .85fr);
+  gap: 12px;
+  margin: 0 0 18px;
+}
+.study-mode-panel button {
+  min-height: 62px;
+  border-radius: 18px;
+  border: 1px solid #d9def0;
+  background: #fff;
+}
+.auto-study-btn { padding: 11px 15px; gap: 12px; }
+.auto-study-btn b { font-size: 15px; color: #312e81; }
+.auto-study-btn small { margin-top: 4px; font-size: 11px; }
+.auto-study-btn .ui-icon { width: 24px; height: 24px; }
+.auto-study-btn.active { background: var(--indigo-soft); border-color: #a5b4fc; }
+.meaning-toggle-btn { padding: 10px 14px; gap: 8px; font-size: 15px; color: #4c1d95; }
+.meaning-toggle-btn .ui-icon { width: 22px; height: 22px; }
+.meaning-toggle-btn.active { background: var(--violet-soft); border-color: #c4b5fd; }
+
+/* word card — consistent hierarchy */
+.word-card {
+  min-height: 430px;
+  padding: 30px 24px 30px;
+  border-radius: 30px;
+  box-shadow: 0 16px 38px rgba(30,41,59,.07);
+}
+.word-card::after { width: 230px; height: 230px; right: -118px; top: -118px; }
+.status-pill { left: 20px; top: 20px; padding: 8px 11px; font-size: 11px; }
+
+/* WORD / MEANING labels must match */
+.word-label,
+.meaning-box small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 850;
+  letter-spacing: .14em;
+  line-height: 1;
+}
+.word-label { margin: 18px 0 12px; }
+.word-card h2 {
+  font-size: clamp(46px, 12vw, 62px);
+  line-height: 1.04;
+  letter-spacing: -.045em;
+}
+
+/* English and Korean speaker controls: same size */
+.speaker-big,
+.meaning-sound-btn {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  border: 0;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+}
+.speaker-big .ui-icon,
+.meaning-sound-btn .ui-icon {
+  width: 23px;
+  height: 23px;
+  stroke-width: 1.9;
+}
+
+.meaning-box {
+  margin-top: 26px;
+  max-width: 520px;
+  padding: 18px 20px 20px;
+  border-radius: 20px;
+  background: #fbfcff;
+  border-color: #cbd5e1;
+}
+.meaning-title-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+}
+.meaning-box p { margin: 10px 0 0; font-size: 22px; line-height: 1.5; }
+.swipe-hint { bottom: 14px; font-size: 11px; }
+
+/* speed controls */
+.dual-rate-row { grid-template-columns: 120px 1fr; gap: 12px 14px; margin: 18px 6px; font-size: 14px; }
+.dual-rate-row label { white-space: nowrap; }
+.dual-rate-row input { height: 26px; }
+
+/* action buttons */
+.judge-row { gap: 12px; }
+.judge-row button { min-height: 62px; border-radius: 18px; font-size: 17px; }
+.nav-row { gap: 10px; margin-top: 12px; }
+.nav-row button { min-height: 50px; border-radius: 15px; font-size: 14px; }
+
+/* quiz / search */
 .quiz-card { padding: 30px 22px 22px; }
-.quiz-options button { font-size: 14px; padding: 15px; }
+.quiz-options button { padding: 15px; font-size: 14px; }
 .page-title > p:last-child { font-size: 15px; }
 .search-box { height: 60px; }
 .search-box input { font-size: 17px; }
@@ -64,49 +165,57 @@
 .word-list-main small { font-size: 11px; }
 .word-list-main p { font-size: 14px; line-height: 1.45; }
 
-/* 자동 학습 영역 확대 */
-.study-mode-panel { gap: 11px; margin-bottom: 17px; }
-.study-mode-panel button { min-height: 64px; }
-.auto-study-btn { padding: 11px 15px; gap: 12px; }
-.auto-study-btn b { font-size: 15px; }
-.auto-study-btn small { font-size: 11px; margin-top: 4px; }
-.auto-study-btn .ui-icon { width: 24px; height: 24px; }
-.meaning-toggle-btn { font-size: 14px; padding: 10px 13px; }
-.meaning-toggle-btn .ui-icon { width: 21px; height: 21px; }
-.meaning-sound-btn { width: 36px; height: 36px; }
-.meaning-sound-btn .ui-icon { width: 19px; height: 19px; }
-.dual-rate-row { grid-template-columns: 110px 1fr; row-gap: 11px; }
-
-/* 하단 메뉴: 6개지만 글씨/아이콘을 읽기 쉽게 */
-.bottom-nav { grid-template-columns: repeat(6, 1fr); height: calc(82px + env(safe-area-inset-bottom)); padding: 8px 6px calc(8px + env(safe-area-inset-bottom)); }
-.bottom-nav button, .bottom-nav a { min-width: 0; border:0; background:none; color:#94a3b8; font-size:11px; font-weight:850; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; text-decoration:none; }
-.bottom-nav .nav-icon, .bottom-nav a .nav-icon { width:25px; height:25px; stroke-width:1.9; }
-.bottom-nav button > span, .bottom-nav a > span { font-size: 11px; line-height:1; }
-.app-shell { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+/* bottom navigation */
+.bottom-nav {
+  grid-template-columns: repeat(6, 1fr);
+  height: calc(82px + env(safe-area-inset-bottom));
+  padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+}
+.bottom-nav button, .bottom-nav a {
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: #94a3b8;
+  font-size: 10.5px;
+  font-weight: 850;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  text-decoration: none;
+}
+.bottom-nav .nav-icon, .bottom-nav a .nav-icon { width: 24px; height: 24px; stroke-width: 1.9; }
+.bottom-nav button > span, .bottom-nav a > span { font-size: 10.5px; line-height: 1; }
 
 @media (max-width: 520px) {
   .topbar { height: 82px; padding: 12px 16px; }
   .brand-mark { width: 46px; height: 46px; }
   .brand b { font-size: 17px; }
-  .brand small { font-size: 12px; }
-  .top-progress strong { font-size: 22px; }
-  .top-progress span { font-size: 11px; }
   .view { padding-left: 16px; padding-right: 16px; }
-  .day-card { min-height: 148px; padding: 16px; }
+  .day-card { min-height: 146px; padding: 16px; }
   .day-card h3 { font-size: 18px; }
-  .day-card-head { font-size: 12px; }
-  .day-card small { font-size: 11.5px; }
-  .word-card h2 { font-size: clamp(44px, 13vw, 62px); }
+
+  /* keep the two study controls side-by-side on phones */
+  .study-mode-panel { grid-template-columns: minmax(0, 1.45fr) minmax(128px, .8fr); gap: 10px; }
+  .study-mode-panel button { min-height: 60px; }
+  .auto-study-btn { padding: 9px 12px; }
+  .auto-study-btn b { font-size: 14px; }
+  .auto-study-btn small { font-size: 10px; }
+  .meaning-toggle-btn { font-size: 14px; padding: 8px 10px; }
+
+  .word-card { min-height: 410px; padding: 26px 20px 28px; }
+  .word-label, .meaning-box small { font-size: 12.5px; }
+  .word-card h2 { font-size: clamp(44px, 12.5vw, 58px); }
   .meaning-box p { font-size: 21px; }
-  .study-mode-panel { grid-template-columns: 1fr; }
-  .meaning-toggle-btn { min-height: 52px !important; }
-  .bottom-nav button > span, .bottom-nav a > span { font-size: 10.5px; }
-  .bottom-nav .nav-icon, .bottom-nav a .nav-icon { width:24px; height:24px; }
+  .speaker-big, .meaning-sound-btn { width: 46px; height: 46px; min-width: 46px; min-height: 46px; }
+  .speaker-big .ui-icon, .meaning-sound-btn .ui-icon { width: 22px; height: 22px; }
+  .dual-rate-row { grid-template-columns: 112px 1fr; font-size: 13px; }
 }
 
-@media (max-width: 380px) {
-  .day-card { min-height: 142px; padding: 14px; }
-  .day-card h3 { font-size: 17px; }
+@media (max-width: 370px) {
+  .study-mode-panel { grid-template-columns: 1fr; }
+  .word-card { min-height: 395px; }
   .bottom-nav { padding-left: 2px; padding-right: 2px; }
   .bottom-nav button > span, .bottom-nav a > span { font-size: 10px; }
 }
