@@ -8,6 +8,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/icons.css" />
   <title>TOEIC 30DAY</title>
 </head>
 <body>
@@ -31,7 +32,7 @@
             <h1>걷다가도<br><span>한 단어씩.</span></h1>
             <p>발음 듣고, 뜻 확인하고, 외웠는지만 눌러주세요. 진도는 자동 저장됩니다.</p>
           </div>
-          <button class="primary hero-action" @click="continueStudy">이어 공부하기 →</button>
+          <button class="primary hero-action" @click="continueStudy">이어 공부하기 <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
           <div class="overall-bar"><i :style="{ width: overallPercent + '%' }"></i></div>
           <div class="hero-stats">
             <span><b>{{ knownIds.length }}</b> 외움</span>
@@ -60,11 +61,11 @@
 
       <section v-else-if="activeView === 'study'" class="view study-view">
         <div class="study-toolbar">
-          <button class="icon-button" @click="activeView = 'home'">←</button>
+          <button class="icon-button" @click="activeView = 'home'" aria-label="홈으로"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
           <button class="day-selector" @click="activeView = 'home'">
             <b>DAY {{ selectedDay }}</b><span>{{ currentWord?.topic }}</span>
           </button>
-          <button class="icon-button" :class="{ on: autoSpeak }" @click="autoSpeak = !autoSpeak" title="자동 발음">🔊</button>
+          <button class="icon-button" :class="{ on: autoSpeak }" @click="autoSpeak = !autoSpeak" title="자동 발음" aria-label="자동 발음"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
         </div>
 
         <div class="study-progress-row">
@@ -74,9 +75,9 @@
         </div>
 
         <div class="word-card" @touchstart="onTouchStart" @touchend="onTouchEnd">
-          <span class="status-pill" v-if="currentWord && state.status[currentWord.id] === 'known'">✓ 외움</span>
-          <span class="status-pill unknown" v-else-if="currentWord && state.status[currentWord.id] === 'unknown'">↻ 복습</span>
-          <button class="speaker-big" @click="speak(currentWord?.word)" aria-label="발음 듣기">🔊</button>
+          <span class="status-pill icon-label" v-if="currentWord && state.status[currentWord.id] === 'known'"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg> 외움</span>
+          <span class="status-pill unknown icon-label" v-else-if="currentWord && state.status[currentWord.id] === 'unknown'"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg> 복습</span>
+          <button class="speaker-big" @click="speak(currentWord?.word)" aria-label="발음 듣기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
           <p class="word-label">WORD</p>
           <h2>{{ currentWord?.word }}</h2>
           <button v-if="!showMeaning" class="meaning-hidden" @click="toggleMeaning">뜻 보기</button>
@@ -94,20 +95,20 @@
 
         <div class="judge-row">
           <button class="unknown-btn" @click="mark('unknown')">아직 몰라요</button>
-          <button class="known-btn" @click="mark('known')">외웠어요 ✓</button>
+          <button class="known-btn icon-text-btn" @click="mark('known')">외웠어요 <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg></button>
         </div>
         <div class="nav-row">
-          <button @click="move(-1)" :disabled="currentIndex === 0">← 이전</button>
+          <button class="icon-text-btn" @click="move(-1)" :disabled="currentIndex === 0"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg> 이전</button>
           <button @click="makeQuiz(selectedDay)">4지선다 퀴즈</button>
-          <button @click="move(1)" :disabled="currentIndex === dayWords.length - 1">다음 →</button>
+          <button class="icon-text-btn" @click="move(1)" :disabled="currentIndex === dayWords.length - 1">다음 <svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
         </div>
       </section>
 
       <section v-else-if="activeView === 'quiz'" class="view quiz-view">
         <div class="study-toolbar">
-          <button class="icon-button" @click="activeView = 'home'">←</button>
+          <button class="icon-button" @click="activeView = 'home'" aria-label="홈으로"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg></button>
           <div class="day-selector"><b>DAY {{ selectedDay }} 퀴즈</b><span>뜻을 골라보세요</span></div>
-          <button class="icon-button" @click="speak(quiz?.target.word)">🔊</button>
+          <button class="icon-button" @click="speak(quiz?.target.word)" aria-label="문제 발음 듣기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
         </div>
 
         <div v-if="quiz" class="quiz-card">
@@ -119,7 +120,7 @@
             </button>
           </div>
           <div v-if="quizFinished" class="quiz-result" :class="{ success: quizAnswer === quiz.target.id }">
-            <b>{{ quizAnswer === quiz.target.id ? '정답입니다 ✓' : '다시 복습할 단어에 추가했어요' }}</b>
+            <b>{{ quizAnswer === quiz.target.id ? '정답입니다' : '다시 복습할 단어에 추가했어요' }}</b>
             <button class="primary" @click="makeQuiz(selectedDay)">다음 문제</button>
           </div>
         </div>
@@ -132,14 +133,14 @@
           <p>학습에서 ‘아직 몰라요’를 누르거나 퀴즈에서 틀린 단어입니다.</p>
         </div>
         <button v-if="reviewWords.length" class="primary full" @click="studyReview">복습 시작하기</button>
-        <div v-if="!reviewWords.length" class="empty-state">복습할 단어가 없습니다. 👍</div>
+        <div v-if="!reviewWords.length" class="empty-state icon-empty"><svg class="empty-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.7 2.7L16.5 9"/></svg><span>복습할 단어가 없습니다.</span></div>
         <div class="word-list">
           <article v-for="item in reviewWords" :key="item.id">
             <button class="word-list-main" @click="openWord(item)">
               <span><b>{{ item.word }}</b><small>DAY {{ item.day }} · {{ item.topic }}</small></span>
               <p>{{ item.meaning }}</p>
             </button>
-            <button class="mini-speaker" @click="speak(item.word)">🔊</button>
+            <button class="mini-speaker" @click="speak(item.word)" aria-label="발음 듣기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
           </article>
         </div>
       </section>
@@ -150,7 +151,7 @@
           <h1>단어 찾기</h1>
         </div>
         <div class="search-box">
-          <span>⌕</span><input v-model="searchText" placeholder="영단어 또는 뜻 검색" />
+          <span class="search-leading"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></span><input v-model="searchText" placeholder="영단어 또는 뜻 검색" />
         </div>
         <div v-if="searchText && !filteredWords.length" class="empty-state">검색 결과가 없습니다.</div>
         <div class="word-list">
@@ -159,18 +160,18 @@
               <span><b>{{ item.word }}</b><small>DAY {{ item.day }} · {{ item.topic }}</small></span>
               <p>{{ item.meaning }}</p>
             </button>
-            <button class="mini-speaker" @click="speak(item.word)">🔊</button>
+            <button class="mini-speaker" @click="speak(item.word)" aria-label="발음 듣기"><svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg></button>
           </article>
         </div>
       </section>
     </main>
 
     <nav class="bottom-nav">
-      <button :class="{ active: activeView === 'home' }" @click="activeView = 'home'"><span>⌂</span>홈</button>
-      <button :class="{ active: activeView === 'study' }" @click="continueStudy"><span>▣</span>학습</button>
-      <button :class="{ active: activeView === 'quiz' }" @click="makeQuiz(selectedDay)"><span>?</span>퀴즈</button>
-      <button :class="{ active: activeView === 'review' }" @click="activeView = 'review'"><span>↻</span>복습</button>
-      <button :class="{ active: activeView === 'search' }" @click="activeView = 'search'"><span>⌕</span>검색</button>
+      <button :class="{ active: activeView === 'home' }" @click="activeView = 'home'"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m3 10 9-7 9 7"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg><span>홈</span></button>
+      <button :class="{ active: activeView === 'study' }" @click="continueStudy"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5Z"/><path d="M8 6h8"/><path d="M8 10h6"/></svg><span>학습</span></button>
+      <button :class="{ active: activeView === 'quiz' }" @click="makeQuiz(selectedDay)"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.8 9a2.4 2.4 0 1 1 4.1 1.7c-1.2 1-1.9 1.4-1.9 2.8"/><path d="M12 17h.01"/></svg><span>퀴즈</span></button>
+      <button :class="{ active: activeView === 'review' }" @click="activeView = 'review'"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg><span>복습</span></button>
+      <button :class="{ active: activeView === 'search' }" @click="activeView = 'search'"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg><span>검색</span></button>
     </nav>
   </div>
 
