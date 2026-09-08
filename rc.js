@@ -1,301 +1,180 @@
-const DB_NAME = 'toeic-study-local-files-v1'
 const SETS = {
-  v1: {
-    name: 'JKCB RC Practice 1',
-    pdfHint: 'JKCB_v1-1_TOEIC_RC_Reading_Comprehension_Practice.pdf',
-    keyUrl: './data/rc-v1-answer-key.json'
-  },
-  v2: {
-    name: 'JKCB RC Practice 2',
-    pdfHint: 'JKCB_v2_TOEIC_RC_Reading_Comprehension_Practice.pdf',
-    keyUrl: './data/rc-v2-answer-key.json'
-  }
+  v1: { url: './data/rc-v1.json', storage: 'toeic-rc-v1-progress' },
+  v2: { url: './data/rc-v2.json', storage: 'toeic-rc-v2-progress' }
 }
-const PARTS = [
-  { part: 5, start: 1, end: 15 },
-  { part: 6, start: 16, end: 19 },
-  { part: 7, start: 20, end: 25 }
-]
-const TOTAL = 25
-const DEFAULT_SECONDS = 1800
-const qs = new URLSearchParams(location.search)
-const setKey = SETS[qs.get('set')] ? qs.get('set') : 'v1'
-const preset = SETS[setKey]
-const STATE_KEY = `toeic-rc-practice-${setKey}-v1`
 
 const state = {
-  part: 5,
-  answers: {},
-  seconds: DEFAULT_SECONDS,
-  result: null,
-  key: {},
-  running: false,
-  timer: null,
-  pdfUrl: '',
-  pdfName: ''
+  set: 'v1', data: null, answers: {}, scored: false, activePart: 'all',
+  seconds: 1800, timer: null, running: false
 }
 
-const $ = sel => document.querySelector(sel)
-const $$ = sel => Array.from(document.querySelectorAll(sel))
+const $ = s => document.querySelector(s)
+const $$ = s => Array.from(document.querySelectorAll(s))
+const storageKey = () => SETS[state.set].storage
 
-function saveState() {
-  localStorage.setItem(STATE_KEY, JSON.stringify({
-    part: state.part,
-    answers: state.answers,
-    seconds: state.seconds,
-    result: state.result
-  }))
-}
-function loadState() {
+function loadSaved() {
   try {
-    const s = JSON.parse(localStorage.getItem(STATE_KEY) || 'null')
-    if (!s) return
-    if ([5,6,7].includes(s.part)) state.part = s.part
-    state.answers = s.answers || {}
-    if (Number.isFinite(s.seconds)) state.seconds = s.seconds
-    state.result = s.result || null
-  } catch (_) {}
-}
-function openDb() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, 1)
-    req.onupgradeneeded = () => {
-      if (!req.result.objectStoreNames.contains('files')) req.result.createObjectStore('files')
+    const saved = JSON.parse(localStorage.getItem(storageKey()) || 'null')
+    if (!saved) {
+      state.answers = {}; state.scored = false
+      state.seconds = (state.data?.durationMinutes || 30) * 60
+      return
     }
-    req.onsuccess = () => resolve(req.result)
-    req.onerror = () => reject(req.error)
-  })
-}
-async function dbPut(key, file) {
-  const db = await openDb()
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction('files', 'readwrite')
-    tx.objectStore('files').put({ blob: file, name: file.name, type: file.type, savedAt: Date.now() }, key)
-    tx.oncomplete = resolve
-    tx.onerror = () => reject(tx.error)
-  })
-  db.close()
-}
-async function dbGet(key) {
-  const db = await openDb()
-  const value = await new Promise((resolve, reject) => {
-    const tx = db.transaction('files', 'readonly')
-    const req = tx.objectStore('files').get(key)
-    req.onsuccess = () => resolve(req.result || null)
-    req.onerror = () => reject(req.error)
-  })
-  db.close()
-  return value
-}
-async function dbDelete(key) {
-  const db = await openDb()
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction('files', 'readwrite')
-    tx.objectStore('files').delete(key)
-    tx.oncomplete = resolve
-    tx.onerror = () => reject(tx.error)
-  })
-  db.close()
-}
-function fileKey() { return `rc:${setKey}:pdf` }
-function revokePdf() {
-  if (state.pdfUrl.startsWith('blob:')) URL.revokeObjectURL(state.pdfUrl)
-  state.pdfUrl = ''
-  state.pdfName = ''
-}
-async function loadPdf() {
-  revokePdf()
-  try {
-    const pdf = await dbGet(fileKey())
-    if (pdf?.blob) {
-      state.pdfUrl = URL.createObjectURL(pdf.blob)
-      state.pdfName = pdf.name || preset.pdfHint
-    }
-  } catch (_) {}
-  renderPdf()
-}
-async function importPdf(e) {
-  const file = e.target.files?.[0]
-  e.target.value = ''
-  if (!file) return
-  if (file.type && file.type !== 'application/pdf') return alert('PDF 파일을 선택해 주세요.')
-  await dbPut(fileKey(), file)
-  await loadPdf()
-}
-async function clearPdf() {
-  if (!confirm('이 기기에 저장된 현재 RC 문제 PDF를 삭제할까요?')) return
-  await dbDelete(fileKey()).catch(() => {})
-  revokePdf()
-  renderPdf()
-}
-function renderPdf() {
-  $('#pdfStatus').textContent = state.pdfUrl ? 'PDF 저장됨' : '문제 PDF 선택'
-  $('#pdfName').textContent = state.pdfName || preset.pdfHint
-  $('#pdfUpload').classList.toggle('ready', Boolean(state.pdfUrl))
-  const frame = $('#pdfFrame')
-  const empty = $('#pdfEmpty')
-  if (state.pdfUrl) {
-    frame.hidden = false
-    empty.hidden = true
-    frame.src = state.pdfUrl
-  } else {
-    frame.hidden = true
-    empty.hidden = false
-    frame.src = 'about:blank'
+    state.answers = saved.answers || {}
+    state.scored = Boolean(saved.scored)
+    state.seconds = Number.isFinite(saved.seconds) ? saved.seconds : ((state.data?.durationMinutes || 30) * 60)
+  } catch (_) {
+    state.answers = {}; state.scored = false
+    state.seconds = (state.data?.durationMinutes || 30) * 60
   }
 }
-function formatTime(seconds) {
-  const s = Math.max(0, Math.floor(seconds))
-  const h = Math.floor(s / 3600)
-  const m = Math.floor((s % 3600) / 60)
-  const sec = s % 60
-  return [h,m,sec].map(v => String(v).padStart(2,'0')).join(':')
+
+function save() {
+  localStorage.setItem(storageKey(), JSON.stringify({answers: state.answers, scored: state.scored, seconds: state.seconds}))
 }
+
+function fmt(sec) {
+  const s = Math.max(0, sec), m = Math.floor(s / 60), r = s % 60
+  return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`
+}
+
 function renderTimer() {
-  $('#timeValue').textContent = formatTime(state.seconds)
-  $('#timerBox').classList.toggle('running', state.running)
-  $('#timerBtnText').textContent = state.running ? '일시정지' : (state.seconds < DEFAULT_SECONDS ? '이어하기' : '연습 시작')
-  $('#timerIconPlay').hidden = state.running
-  $('#timerIconPause').hidden = !state.running
+  $('#timeValue').textContent = fmt(state.seconds)
+  $('#timerBtn').textContent = state.running ? '일시정지' : (state.seconds < ((state.data?.durationMinutes || 30) * 60) ? '이어하기' : '시작')
 }
-function stopTimer() {
-  if (state.timer) clearInterval(state.timer)
-  state.timer = null
-  state.running = false
-  saveState()
-  renderTimer()
-}
+
 function toggleTimer() {
-  if (state.running) return stopTimer()
+  if (state.running) {
+    clearInterval(state.timer); state.timer = null; state.running = false; save(); renderTimer(); return
+  }
   state.running = true
   state.timer = setInterval(() => {
     state.seconds = Math.max(0, state.seconds - 1)
-    if (!state.seconds) {
-      stopTimer()
-      alert('연습 시간이 끝났습니다.')
-      return
+    if (state.seconds <= 0) {
+      clearInterval(state.timer); state.timer = null; state.running = false; save(); renderTimer(); score(); alert('시간이 끝나 자동 채점했습니다.'); return
     }
-    if (state.seconds % 5 === 0) saveState()
+    if (state.seconds % 5 === 0) save()
     renderTimer()
   }, 1000)
   renderTimer()
 }
-function resetTimer() {
-  stopTimer()
-  state.seconds = DEFAULT_SECONDS
-  saveState()
-  renderTimer()
-}
-function currentPart() { return PARTS.find(p => p.part === state.part) }
-function partForQuestion(n) { return PARTS.find(p => n >= p.start && n <= p.end) }
-function renderParts() {
-  $('#partTabs').innerHTML = PARTS.map(p => `<button class="${p.part === state.part ? 'active' : ''}" data-part="${p.part}"><b>P${p.part}</b><span>${p.start}–${p.end}</span></button>`).join('')
+
+function partLabel(part) { return part === 5 ? 'Part 5' : part === 6 ? 'Part 6' : 'Part 7' }
+function filteredQuestions() { return state.activePart === 'all' ? state.data.questions : state.data.questions.filter(q => q.part === Number(state.activePart)) }
+
+function renderPartTabs() {
+  const tabs = [{id:'all',label:'전체'}, ...state.data.parts.map(p => ({id:String(p.part),label:`Part ${p.part}`}))]
+  $('#partTabs').innerHTML = tabs.map(t => `<button data-part="${t.id}" class="${String(state.activePart) === t.id ? 'active':''}">${t.label}</button>`).join('')
   $$('#partTabs button').forEach(btn => btn.addEventListener('click', () => {
-    state.part = Number(btn.dataset.part)
-    saveState(); renderParts(); renderAnswers()
+    state.activePart = btn.dataset.part; renderPartTabs(); renderQuestions(); window.scrollTo({top:0,behavior:'smooth'})
   }))
 }
-function answerClass(n, choice) {
-  const selected = state.answers[String(n)]
-  if (!state.result) return selected === choice ? 'selected' : ''
-  const correct = state.key[String(n)]
-  if (choice === correct) return 'correct'
-  if (selected === choice && selected !== correct) return 'wrong'
+
+function escapeHtml(text) {
+  return String(text).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')
+}
+
+function passageHtml(passageId) {
+  if (!passageId) return ''
+  const text = state.data.passages[passageId]
+  return text ? `<div class="rc-passage"><div class="rc-passage-head">READING PASSAGE</div><pre>${escapeHtml(text)}</pre></div>` : ''
+}
+
+function optionClass(q, key) {
+  const chosen = state.answers[String(q.id)]
+  if (!state.scored) return chosen === key ? 'selected' : ''
+  if (q.answer === key) return 'correct'
+  if (chosen === key && chosen !== q.answer) return 'wrong'
   return ''
 }
-function renderAnswers() {
-  const p = currentPart()
-  const rows = []
-  for (let n = p.start; n <= p.end; n++) {
-    const selected = state.answers[String(n)]
-    rows.push(`<div class="answer-row" id="q-${n}"><b class="qno">${n}</b><div class="choice-row">${['A','B','C','D'].map(c => `<button data-q="${n}" data-c="${c}" class="${answerClass(n,c)}">${c}</button>`).join('')}</div><button class="clear-one" data-clear="${n}" ${selected ? '' : 'hidden'} aria-label="답 지우기">×</button></div>`)
+
+function renderQuestions() {
+  const questions = filteredQuestions()
+  let lastPassage = null, html = ''
+  for (const q of questions) {
+    if (q.passageId && q.passageId !== lastPassage) { html += passageHtml(q.passageId); lastPassage = q.passageId }
+    if (!q.passageId) lastPassage = null
+    const chosen = state.answers[String(q.id)]
+    html += `<article class="rc-question-card" id="rcq-${q.id}">
+      <div class="rc-q-head"><span>${partLabel(q.part)}</span><b>${q.id}</b></div>
+      <p class="rc-question-text">${escapeHtml(q.question)}</p>
+      <div class="rc-options">${Object.entries(q.options).map(([key,value]) => `<button data-q="${q.id}" data-choice="${key}" class="${optionClass(q,key)}"><b>${key}</b><span>${escapeHtml(value)}</span></button>`).join('')}</div>
+      ${state.scored ? `<div class="rc-answer-note ${chosen === q.answer ? 'ok':'bad'}">정답 <b>${q.answer}</b>${chosen ? ` · 선택 ${chosen}` : ' · 미답'}</div>` : ''}
+    </article>`
   }
-  $('#answerList').innerHTML = rows.join('')
-  $$('#answerList [data-q]').forEach(btn => btn.addEventListener('click', () => {
-    state.answers[String(btn.dataset.q)] = btn.dataset.c
-    state.result = null
-    saveState(); renderAnswers(); renderProgress()
-  }))
-  $$('#answerList [data-clear]').forEach(btn => btn.addEventListener('click', () => {
-    delete state.answers[String(btn.dataset.clear)]
-    state.result = null
-    saveState(); renderAnswers(); renderProgress()
+  $('#questionArea').innerHTML = html
+  $$('#questionArea [data-q]').forEach(btn => btn.addEventListener('click', () => {
+    if (state.scored) return
+    state.answers[String(btn.dataset.q)] = btn.dataset.choice
+    save(); renderQuestions(); renderStatus()
   }))
 }
-function renderProgress() {
-  const answered = Object.keys(state.answers).length
+
+function renderStatus() {
+  const total = state.data.questions.length
+  const answered = Object.keys(state.answers).filter(k => state.data.questions.some(q => String(q.id) === k)).length
+  $('#setTitle').textContent = state.data.title
   $('#answeredCount').textContent = answered
-  $('#remainingCount').textContent = TOTAL - answered
-  $('#progressFill').style.width = `${answered / TOTAL * 100}%`
+  $('#totalCount').textContent = total
+  $('#progressFill').style.width = `${Math.round(answered / total * 100)}%`
   renderResult()
 }
-function scoreTest() {
-  if (Object.keys(state.key).length !== TOTAL) return alert('정답 데이터를 아직 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.')
-  let total = 0, p5 = 0, p6 = 0, p7 = 0, unanswered = 0
-  const wrong = []
-  for (let n = 1; n <= TOTAL; n++) {
-    const chosen = state.answers[String(n)]
-    const correct = state.key[String(n)]
-    if (!chosen) unanswered++
-    else if (chosen === correct) {
-      total++
-      if (n <= 15) p5++
-      else if (n <= 19) p6++
-      else p7++
-    } else wrong.push(n)
-  }
-  state.result = { total, p5, p6, p7, unanswered, wrong }
-  saveState(); renderAnswers(); renderResult()
+
+function score() {
+  state.scored = true; save(); renderQuestions(); renderResult()
+  const firstWrong = state.data.questions.find(q => state.answers[String(q.id)] !== q.answer)
+  if (firstWrong) setTimeout(() => document.getElementById(`rcq-${firstWrong.id}`)?.scrollIntoView({behavior:'smooth',block:'center'}),120)
 }
+
 function renderResult() {
   const box = $('#resultBox')
-  if (!state.result) { box.hidden = true; return }
+  if (!state.scored) { box.hidden = true; return }
   box.hidden = false
-  $('#scoreTotal').textContent = state.result.total
-  $('#scoreP5').textContent = `${state.result.p5}/15`
-  $('#scoreP6').textContent = `${state.result.p6}/4`
-  $('#scoreP7').textContent = `${state.result.p7}/6`
-  $('#wrongBtn').hidden = !state.result.wrong.length
+  const qs = state.data.questions, correct = qs.filter(q => state.answers[String(q.id)] === q.answer)
+  $('#scoreValue').textContent = correct.length
+  $('#scorePercent').textContent = `${Math.round(correct.length / qs.length * 100)}%`
+  for (const part of [5,6,7]) {
+    const pqs = qs.filter(q => q.part === part), pc = pqs.filter(q => state.answers[String(q.id)] === q.answer).length
+    $(`#part${part}Score`).textContent = `${pc}/${pqs.length}`
+  }
 }
-function nextUnanswered() {
-  const n = Array.from({length: TOTAL}, (_,i) => i+1).find(n => !state.answers[String(n)])
-  if (!n) return alert('모든 문항에 답했습니다.')
-  state.part = partForQuestion(n).part
-  saveState(); renderParts(); renderAnswers()
-  setTimeout(() => $(`#q-${n}`)?.scrollIntoView({behavior:'smooth',block:'center'}), 20)
+
+function nextBlank() {
+  const q = state.data.questions.find(q => !state.answers[String(q.id)])
+  if (!q) return alert('모든 문항에 답했습니다.')
+  state.activePart = 'all'; renderPartTabs(); renderQuestions()
+  setTimeout(() => document.getElementById(`rcq-${q.id}`)?.scrollIntoView({behavior:'smooth',block:'center'}),60)
 }
-function firstWrong() {
-  const n = state.result?.wrong?.[0]
-  if (!n) return
-  state.part = partForQuestion(n).part
-  saveState(); renderParts(); renderAnswers()
-  setTimeout(() => $(`#q-${n}`)?.scrollIntoView({behavior:'smooth',block:'center'}), 20)
+
+function reset() {
+  if (!confirm('현재 세트의 답안과 채점 기록을 초기화할까요?')) return
+  state.answers = {}; state.scored = false; state.seconds = (state.data.durationMinutes || 30) * 60
+  save(); renderTimer(); renderQuestions(); renderStatus()
 }
-function resetAnswers() {
-  if (!confirm('현재 RC 답안과 채점 결과를 초기화할까요?')) return
-  state.answers = {}; state.result = null
-  saveState(); renderAnswers(); renderProgress()
+
+async function loadSet(key) {
+  if (!SETS[key]) return
+  if (state.timer) clearInterval(state.timer)
+  state.timer = null; state.running = false; state.set = key; state.activePart = 'all'
+  const res = await fetch(SETS[key].url, {cache:'no-store'})
+  if (!res.ok) throw new Error('문제 데이터를 불러오지 못했습니다.')
+  state.data = await res.json(); loadSaved()
+  $$('.rc-set-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.set === key))
+  renderPartTabs(); renderQuestions(); renderStatus(); renderTimer()
 }
-async function init() {
-  loadState()
-  $('#testTitle').textContent = setKey === 'v1' ? 'RC 연습 1' : 'RC 연습 2'
-  $('#presetName').textContent = preset.name
-  $('#setV1').classList.toggle('active', setKey === 'v1')
-  $('#setV2').classList.toggle('active', setKey === 'v2')
-  try {
-    const res = await fetch(preset.keyUrl)
-    state.key = res.ok ? await res.json() : {}
-  } catch (_) { state.key = {} }
-  $('#pdfInput').addEventListener('change', importPdf)
-  $('#clearFilesBtn').addEventListener('click', clearPdf)
+
+function bind() {
+  $$('.rc-set-tab').forEach(btn => btn.addEventListener('click', () => loadSet(btn.dataset.set)))
   $('#timerBtn').addEventListener('click', toggleTimer)
-  $('#timerResetBtn').addEventListener('click', resetTimer)
-  $('#nextBlankBtn').addEventListener('click', nextUnanswered)
-  $('#scoreBtn').addEventListener('click', scoreTest)
-  $('#resetAnswersBtn').addEventListener('click', resetAnswers)
-  $('#wrongBtn').addEventListener('click', firstWrong)
-  await loadPdf()
-  renderParts(); renderAnswers(); renderProgress(); renderTimer()
+  $('#nextBlankBtn').addEventListener('click', nextBlank)
+  $('#scoreBtn').addEventListener('click', score)
+  $('#resetBtn').addEventListener('click', reset)
+  window.addEventListener('beforeunload', save)
 }
-window.addEventListener('beforeunload', saveState)
+
+async function init() {
+  bind()
+  try { await loadSet('v1') }
+  catch (e) { console.error(e); $('#questionArea').innerHTML = '<div class="empty-state">문제 데이터를 불러오지 못했습니다. 새로고침해 주세요.</div>' }
+}
 init()
