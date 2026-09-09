@@ -24,7 +24,6 @@
     return `/${file}?book=${encodeURIComponent(bookId)}`
   }
 
-  // 기존 /ebook.html?book=... 링크도 새 학습 페이지로 자연스럽게 이동시킨다.
   if (bookId && path.endsWith('/ebook.html')) {
     location.replace(pageUrl('prep'))
     return
@@ -35,7 +34,45 @@
   const currentView = isReaderPage ? 'reader' : 'prep'
   patchBookState({ activeTab: currentView })
 
-  // 기존 ebook.js의 같은 화면 내 패널 전환보다 먼저 잡아 실제 페이지 이동으로 처리한다.
+  let syncing = false
+  function syncPageUi() {
+    if (syncing) return
+    const prepTab = document.getElementById('prepTab')
+    const readTab = document.getElementById('readTab')
+    const prepPanel = document.getElementById('prepPanel')
+    const readerPanel = document.getElementById('readerPanel')
+    if (!prepTab || !readTab || !prepPanel || !readerPanel) return
+
+    syncing = true
+    const prepActive = currentView === 'prep'
+    prepTab.classList.toggle('active', prepActive)
+    readTab.classList.toggle('active', !prepActive)
+
+    if (prepActive) {
+      prepTab.setAttribute('aria-current', 'page')
+      readTab.removeAttribute('aria-current')
+      prepPanel.hidden = false
+      readerPanel.hidden = true
+    } else {
+      readTab.setAttribute('aria-current', 'page')
+      prepTab.removeAttribute('aria-current')
+      prepPanel.hidden = true
+      readerPanel.hidden = false
+    }
+    document.body.dataset.ebookView = currentView
+    syncing = false
+  }
+
+  syncPageUi()
+
+  const bookView = document.getElementById('bookView') || document.body
+  const observer = new MutationObserver(() => syncPageUi())
+  observer.observe(bookView, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'hidden', 'aria-current']
+  })
+
   document.addEventListener('click', event => {
     const prepTab = event.target.closest('#prepTab')
     const readTab = event.target.closest('#readTab')
@@ -43,9 +80,12 @@
 
     if (prepTab || readTab) {
       const nextView = readTab ? 'reader' : 'prep'
-      if (nextView === currentView) return
       event.preventDefault()
       event.stopImmediatePropagation()
+      if (nextView === currentView) {
+        syncPageUi()
+        return
+      }
       patchBookState({ activeTab: nextView })
       location.href = pageUrl(nextView)
       return
