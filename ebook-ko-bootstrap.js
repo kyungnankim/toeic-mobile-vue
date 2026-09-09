@@ -21,7 +21,7 @@
       const ko = String(item.ko || '').trim()
       if (!key || !ko) continue
       exact.set(key, ko)
-      if (key.length >= 14) fuzzy.push({ key, ko })
+      if (key.length >= 10) fuzzy.push({ key, ko })
     }
     fuzzy.sort((a, b) => b.key.length - a.key.length)
     return { exact, fuzzy }
@@ -42,7 +42,7 @@
     if (manualByBook.has(cacheKey)) return manualByBook.get(cacheKey)
     const promise = (async () => {
       const base = `/data/${encodeURIComponent(book)}-ko-ch${chapter}`
-      const files = [`${base}.json?v=3`, ...[1, 2, 3, 4, 5].map(n => `${base}-${n}.json?v=3`)]
+      const files = [`${base}.json?v=4`, ...[1, 2, 3, 4, 5].map(n => `${base}-${n}.json?v=4`)]
       const jsons = await Promise.all(files.map(fetchJson))
       const entries = jsons.flatMap(json => Array.isArray(json?.entries) ? json.entries : [])
       const index = entries.length ? buildIndex(entries) : null
@@ -59,8 +59,13 @@
     if (!key) return ''
     const exact = index.exact.get(key)
     if (exact) return exact
+
     for (const item of index.fuzzy) {
-      if (key.startsWith(item.key) || (item.key.length >= 28 && key.includes(item.key))) return item.ko
+      if (key.startsWith(item.key)) return item.ko
+    }
+    for (const item of index.fuzzy) {
+      if (key.length >= 18 && item.key.startsWith(key)) return item.ko
+      if (item.key.length >= 28 && key.includes(item.key)) return item.ko
     }
     return ''
   }
@@ -69,17 +74,44 @@
     return findManual(resolvedByBook.get(`${book}:${chapter}`), text)
   }
 
-  window.__ebookManualKo = { load: loadManual, lookup }
+  function currentChapter() {
+    try {
+      const state = JSON.parse(localStorage.getItem('toeic-ebook-state-v2') || '{}')
+      return Math.max(1, Number(state?.books?.[bookId]?.chapterNo || 1))
+    } catch (_) {
+      return 1
+    }
+  }
+
+  async function applyManualToCards() {
+    if (!bookId) return
+    const chapter = currentChapter()
+    const index = await loadManual(bookId, chapter)
+    if (!index) return
+    document.querySelectorAll('#readerLines .line-card').forEach(card => {
+      const en = card.querySelector('.line-en')?.textContent || ''
+      const ko = findManual(index, en)
+      if (!ko) return
+      const target = card.querySelector('.line-ko')
+      if (!target) return
+      target.textContent = ko
+      target.classList.remove('loading')
+    })
+  }
+
+  window.__ebookManualKo = { load: loadManual, lookup, apply: applyManualToCards }
+
+  // Chapter 1의 수동 번역 JSON은 본문 API보다 먼저 불러온다.
   if (bookId) loadManual(bookId, 1)
 
+  // 기존 번역 호출이 발생해도 JSON에 있는 문장은 네트워크 번역을 사용하지 않는다.
   window.fetch = async function(input, init) {
     const url = typeof input === 'string' ? input : String(input?.url || '')
     if (url.startsWith('/api/translate?')) {
       try {
         const parsed = new URL(url, location.origin)
         const text = parsed.searchParams.get('text') || ''
-        const state = JSON.parse(localStorage.getItem('toeic-ebook-state-v2') || '{}')
-        const chapter = Number(state?.books?.[bookId]?.chapterNo || 1)
+        const chapter = currentChapter()
         const index = await loadManual(bookId, chapter)
         const translated = findManual(index, text)
         if (translated) {
@@ -92,4 +124,20 @@
     }
     return nativeFetch(input, init)
   }
+
+  // ebook.js가 문장 카드를 만든 직후 같은 프레임에서 JSON 번역으로 교체한다.
+  const observer = new MutationObserver(() => { applyManualToCards() })
+  const startObserver = () => {
+    const reader = document.getElementById('readerLines')
+    if (!reader) return
+    observer.observe(reader, { childList: true, subtree: true })
+    applyManualToCards()
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', startObserver, { once: true })
+  else startObserver()
+
+  // 로딩 문구가 한 프레임이라도 노출되지 않게 숨기고, 번역이 들어오면 정상 표시한다.
+  const style = document.createElement('style')
+  style.textContent = '.line-ko.loading{color:transparent!important;min-height:1.7em}.line-ko.loading::after{content:""}'
+  document.head.appendChild(style)
 })()
