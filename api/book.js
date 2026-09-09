@@ -17,28 +17,31 @@ function cleanParagraphs(raw) {
 
 function splitChapters(text) {
   const lines = text.replace(/\r/g, '').split('\n')
+  const expected = ['I','II','III','IV','V','VI','VII','VIII','IX']
   const starts = []
-  const roman = /^(I|II|III|IV|V|VI|VII|VIII|IX)$/
-  for (let i = 0; i < lines.length; i++) {
-    const raw = lines[i]
-    const trimmed = raw.trim()
-    if (i > 40 && /^\s{10,}/.test(raw) && roman.test(trimmed)) {
-      const prev = lines.slice(Math.max(0, i - 2), i).join(' ').toLowerCase()
-      if (!prev.includes('table of contents')) starts.push({ i, label: trimmed })
+  let cursor = 50
+
+  for (const label of expected) {
+    let found = -1
+    for (let i = cursor; i < lines.length; i++) {
+      const raw = lines[i]
+      if (/^\s{10,}/.test(raw) && raw.trim() === label) {
+        found = i
+        break
+      }
     }
+    if (found < 0) break
+    starts.push({ i: found, label })
+    cursor = found + 1
   }
-  // Keep the first occurrence of each Roman chapter in order.
-  const unique = []
-  const seen = new Set()
-  for (const s of starts) {
-    if (!seen.has(s.label)) {
-      seen.add(s.label)
-      unique.push(s)
+
+  return starts.map((s, idx) => {
+    let end = starts[idx + 1]?.i
+    if (!end) {
+      const footer = lines.findIndex((l, j) => j > s.i && l.includes('*** END OF THE PROJECT GUTENBERG EBOOK'))
+      end = footer > s.i ? footer : lines.length
     }
-  }
-  return unique.map((s, idx) => {
-    const end = unique[idx + 1]?.i ?? lines.findIndex((l, j) => j > s.i && l.includes('*** END OF THE PROJECT GUTENBERG EBOOK'))
-    const body = lines.slice(s.i + 1, end > s.i ? end : lines.length).join('\n')
+    const body = lines.slice(s.i + 1, end).join('\n')
     return { number: idx + 1, roman: s.label, paragraphs: cleanParagraphs(body) }
   })
 }
