@@ -12,11 +12,10 @@
       .replace(/[^a-z0-9]+/g, '')
   }
 
-  function buildIndex(json) {
-    const entries = Array.isArray(json?.entries) ? json.entries : []
+  function buildIndex(entries) {
     const exact = new Map()
     const fuzzy = []
-    for (const item of entries) {
+    for (const item of entries || []) {
       const key = normalizeEnglish(item.en)
       const ko = String(item.ko || '').trim()
       if (!key || !ko) continue
@@ -27,13 +26,25 @@
     return { exact, fuzzy }
   }
 
+  async function fetchJson(url) {
+    try {
+      const res = await nativeFetch(url, { cache: 'force-cache' })
+      return res.ok ? await res.json() : null
+    } catch (_) {
+      return null
+    }
+  }
+
   async function loadManual(book, chapter) {
     const cacheKey = `${book}:${chapter}`
     if (manualByBook.has(cacheKey)) return manualByBook.get(cacheKey)
-    const promise = nativeFetch(`/data/${encodeURIComponent(book)}-ko-ch${chapter}.json?v=1`, { cache: 'force-cache' })
-      .then(res => res.ok ? res.json() : null)
-      .then(json => json ? buildIndex(json) : null)
-      .catch(() => null)
+    const promise = (async () => {
+      const base = `/data/${encodeURIComponent(book)}-ko-ch${chapter}`
+      const files = [`${base}.json?v=2`, ...[1, 2, 3, 4, 5].map(n => `${base}-${n}.json?v=2`)]
+      const jsons = await Promise.all(files.map(fetchJson))
+      const entries = jsons.flatMap(json => Array.isArray(json?.entries) ? json.entries : [])
+      return entries.length ? buildIndex(entries) : null
+    })()
     manualByBook.set(cacheKey, promise)
     return promise
   }
@@ -50,7 +61,6 @@
     return ''
   }
 
-  // 가장 먼저 Chapter 1 JSON을 당겨 둔다. 다른 챕터 파일이 생기면 같은 규칙으로 자동 사용된다.
   if (bookId) loadManual(bookId, 1)
 
   window.fetch = async function(input, init) {
@@ -59,7 +69,6 @@
       try {
         const parsed = new URL(url, location.origin)
         const text = parsed.searchParams.get('text') || ''
-        // 현재 리더 상태에 맞는 챕터를 우선 찾고, Chapter 1도 함께 확인한다.
         const state = JSON.parse(localStorage.getItem('toeic-ebook-state-v2') || '{}')
         const chapter = Number(state?.books?.[bookId]?.chapterNo || 1)
         const index = await loadManual(bookId, chapter)
