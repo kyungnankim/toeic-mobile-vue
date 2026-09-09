@@ -3,6 +3,7 @@
   const params = new URLSearchParams(location.search)
   const bookId = String(params.get('book') || '').toLowerCase()
   const manualByBook = new Map()
+  const resolvedByBook = new Map()
 
   function normalizeEnglish(text) {
     return String(text || '')
@@ -37,13 +38,16 @@
 
   async function loadManual(book, chapter) {
     const cacheKey = `${book}:${chapter}`
+    if (resolvedByBook.has(cacheKey)) return resolvedByBook.get(cacheKey)
     if (manualByBook.has(cacheKey)) return manualByBook.get(cacheKey)
     const promise = (async () => {
       const base = `/data/${encodeURIComponent(book)}-ko-ch${chapter}`
-      const files = [`${base}.json?v=2`, ...[1, 2, 3, 4, 5].map(n => `${base}-${n}.json?v=2`)]
+      const files = [`${base}.json?v=3`, ...[1, 2, 3, 4, 5].map(n => `${base}-${n}.json?v=3`)]
       const jsons = await Promise.all(files.map(fetchJson))
       const entries = jsons.flatMap(json => Array.isArray(json?.entries) ? json.entries : [])
-      return entries.length ? buildIndex(entries) : null
+      const index = entries.length ? buildIndex(entries) : null
+      resolvedByBook.set(cacheKey, index)
+      return index
     })()
     manualByBook.set(cacheKey, promise)
     return promise
@@ -61,6 +65,11 @@
     return ''
   }
 
+  function lookup(book, chapter, text) {
+    return findManual(resolvedByBook.get(`${book}:${chapter}`), text)
+  }
+
+  window.__ebookManualKo = { load: loadManual, lookup }
   if (bookId) loadManual(bookId, 1)
 
   window.fetch = async function(input, init) {
