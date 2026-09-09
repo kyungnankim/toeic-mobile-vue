@@ -1,0 +1,56 @@
+{
+  "books": [
+    {
+      "id": "gatsby",
+      "title": "The Great Gatsby",
+      "author": "F. Scott Fitzgerald",
+      "year": 1925,
+      "chapters": 9,
+      "level": "중상급",
+      "summary": "문학 작품을 읽으면서 실전 영어 어휘, 문장 구조, 시제와 관계절을 함께 익히는 리딩 코스입니다.",
+      "source": "Project Gutenberg eBook #64317",
+      "study": {
+        "vocabulary": [
+          {"word":"vulnerable","meaning":"상처받기 쉬운, 취약한","example":"In my younger and more vulnerable years..."},
+          {"word":"criticize","meaning":"비판하다","example":"Whenever you feel like criticizing anyone..."},
+          {"word":"advantage","meaning":"이점, 유리한 조건","example":"...haven't had the advantages that you've had."},
+          {"word":"reserve","meaning":"유보하다, 삼가다","example":"I'm inclined to reserve all judgements."},
+          {"word":"judgement","meaning":"판단","example":"Reserving judgements is a matter of infinite hope."},
+          {"word":"consequence","meaning":"결과, 그 결과","example":"In consequence, I'm inclined to reserve all judgements."},
+          {"word":"privy","meaning":"비밀을 알고 있는","example":"I was privy to the secret griefs..."},
+          {"word":"unsought","meaning":"원하지 않았던, 청하지 않은","example":"Most of the confidences were unsought."},
+          {"word":"feign","meaning":"~인 체하다","example":"I have feigned sleep..."},
+          {"word":"preoccupation","meaning":"몰두, 선입견","example":"...sleep, preoccupation, or a hostile levity..."},
+          {"word":"revelation","meaning":"폭로, 뜻밖의 고백","example":"...an intimate revelation was quivering on the horizon."},
+          {"word":"suppression","meaning":"억제, 감춤","example":"...marred by obvious suppressions."},
+          {"word":"decency","meaning":"예의 바름, 품위","example":"...a sense of the fundamental decencies..."},
+          {"word":"scorn","meaning":"경멸","example":"...everything for which I have an unaffected scorn."},
+          {"word":"responsiveness","meaning":"반응성, 민감한 반응","example":"This responsiveness had nothing to do with..."},
+          {"word":"impressionability","meaning":"쉽게 영향을 받는 성향","example":"...that flabby impressionability..."},
+          {"word":"prominent","meaning":"저명한, 두드러진","example":"My family have been prominent..."},
+          {"word":"well-to-do","meaning":"부유한","example":"...well-to-do people in this Middle Western city..."},
+          {"word":"restless","meaning":"불안한, 가만히 있지 못하는","example":"I came back restless."},
+          {"word":"proximity","meaning":"가까움, 근접","example":"...the consoling proximity of millionaires."}
+        ],
+        "grammar": [
+          {"title":"현재완료 진행형","pattern":"have/has been + -ing","example":"I've been turning over in my mind ever since.","meaning":"과거부터 지금까지 계속 이어지는 동작을 나타냅니다."},
+          {"title":"Whenever 조건/시간절","pattern":"Whenever + 주어 + 동사","example":"Whenever you feel like criticizing anyone...","meaning":"'~할 때마다'라는 반복되는 상황을 나타냅니다."},
+          {"title":"현재완료","pattern":"have/has + p.p.","example":"...haven't had the advantages that you've had.","meaning":"과거 경험이나 상태가 현재와 연결될 때 사용합니다."},
+          {"title":"수동태","pattern":"be + p.p.","example":"I was unjustly accused of being a politician.","meaning":"행위자보다 행위를 받는 대상에 초점을 둡니다."},
+          {"title":"관계대명사 who","pattern":"명사 + who + 동사","example":"Only Gatsby, the man who gives his name to this book...","meaning":"앞의 사람 명사를 뒤에서 설명합니다."},
+          {"title":"as if 가정/비유","pattern":"as if + 주어 + 동사","example":"...as if he were related to one of those intricate machines...","meaning":"'마치 ~인 것처럼'이라는 비유나 가정을 표현합니다."},
+          {"title":"such as 예시","pattern":"such as + 명사(구)","example":"...a romantic readiness such as I have never found...","meaning":"앞의 내용을 구체적인 예로 설명할 때 씁니다."},
+          {"title":"It is likely that 구조","pattern":"It is (not) likely + 절","example":"...it is not likely I shall ever find again.","meaning":"어떤 일이 일어날 가능성을 말할 때 사용하는 표현입니다."}
+        ],
+        "quiz": [
+          {"q":"vulnerable의 가장 알맞은 뜻은?","choices":["취약한","웅장한","영리한","가벼운"],"answer":0},
+          {"q":"reserve all judgements의 뜻은?","choices":["판단을 확정하다","판단을 유보하다","판단을 기록하다","판단을 번역하다"],"answer":1},
+          {"q":"I was unjustly accused...의 문법은?","choices":["가정법","비교급","수동태","명령문"],"answer":2},
+          {"q":"Whenever는 문장에서 어떤 뜻인가요?","choices":["~하기 전에","~할 때마다","~했더라면","~임에도"],"answer":1},
+          {"q":"as if의 의미는?","choices":["왜냐하면","~하자마자","마치 ~처럼","~뿐만 아니라"],"answer":2},
+          {"q":"privy to의 뜻은?","choices":["~을 모르고 있는","~의 비밀을 알고 있는","~을 피하고 있는","~을 반대하는"],"answer":1}
+        ]
+      }
+    }
+  ]
+}
