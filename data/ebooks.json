@@ -7,50 +7,154 @@
       "year": 1925,
       "chapters": 9,
       "level": "중상급",
-      "summary": "문학 작품을 읽으면서 실전 영어 어휘, 문장 구조, 시제와 관계절을 함께 익히는 리딩 코스입니다.",
+      "summary": "F. Scott Fitzgerald의 소설을 챕터별 사전학습과 두 가지 읽기 모드로 읽습니다.",
       "source": "Project Gutenberg eBook #64317",
-      "study": {
-        "vocabulary": [
-          {"word":"vulnerable","meaning":"상처받기 쉬운, 취약한","example":"In my younger and more vulnerable years..."},
-          {"word":"criticize","meaning":"비판하다","example":"Whenever you feel like criticizing anyone..."},
-          {"word":"advantage","meaning":"이점, 유리한 조건","example":"...haven't had the advantages that you've had."},
-          {"word":"reserve","meaning":"유보하다, 삼가다","example":"I'm inclined to reserve all judgements."},
-          {"word":"judgement","meaning":"판단","example":"Reserving judgements is a matter of infinite hope."},
-          {"word":"consequence","meaning":"결과, 그 결과","example":"In consequence, I'm inclined to reserve all judgements."},
-          {"word":"privy","meaning":"비밀을 알고 있는","example":"I was privy to the secret griefs..."},
-          {"word":"unsought","meaning":"원하지 않았던, 청하지 않은","example":"Most of the confidences were unsought."},
-          {"word":"feign","meaning":"~인 체하다","example":"I have feigned sleep..."},
-          {"word":"preoccupation","meaning":"몰두, 선입견","example":"...sleep, preoccupation, or a hostile levity..."},
-          {"word":"revelation","meaning":"폭로, 뜻밖의 고백","example":"...an intimate revelation was quivering on the horizon."},
-          {"word":"suppression","meaning":"억제, 감춤","example":"...marred by obvious suppressions."},
-          {"word":"decency","meaning":"예의 바름, 품위","example":"...a sense of the fundamental decencies..."},
-          {"word":"scorn","meaning":"경멸","example":"...everything for which I have an unaffected scorn."},
-          {"word":"responsiveness","meaning":"반응성, 민감한 반응","example":"This responsiveness had nothing to do with..."},
-          {"word":"impressionability","meaning":"쉽게 영향을 받는 성향","example":"...that flabby impressionability..."},
-          {"word":"prominent","meaning":"저명한, 두드러진","example":"My family have been prominent..."},
-          {"word":"well-to-do","meaning":"부유한","example":"...well-to-do people in this Middle Western city..."},
-          {"word":"restless","meaning":"불안한, 가만히 있지 못하는","example":"I came back restless."},
-          {"word":"proximity","meaning":"가까움, 근접","example":"...the consoling proximity of millionaires."}
-        ],
-        "grammar": [
-          {"title":"현재완료 진행형","pattern":"have/has been + -ing","example":"I've been turning over in my mind ever since.","meaning":"과거부터 지금까지 계속 이어지는 동작을 나타냅니다."},
-          {"title":"Whenever 조건/시간절","pattern":"Whenever + 주어 + 동사","example":"Whenever you feel like criticizing anyone...","meaning":"'~할 때마다'라는 반복되는 상황을 나타냅니다."},
-          {"title":"현재완료","pattern":"have/has + p.p.","example":"...haven't had the advantages that you've had.","meaning":"과거 경험이나 상태가 현재와 연결될 때 사용합니다."},
-          {"title":"수동태","pattern":"be + p.p.","example":"I was unjustly accused of being a politician.","meaning":"행위자보다 행위를 받는 대상에 초점을 둡니다."},
-          {"title":"관계대명사 who","pattern":"명사 + who + 동사","example":"Only Gatsby, the man who gives his name to this book...","meaning":"앞의 사람 명사를 뒤에서 설명합니다."},
-          {"title":"as if 가정/비유","pattern":"as if + 주어 + 동사","example":"...as if he were related to one of those intricate machines...","meaning":"'마치 ~인 것처럼'이라는 비유나 가정을 표현합니다."},
-          {"title":"such as 예시","pattern":"such as + 명사(구)","example":"...a romantic readiness such as I have never found...","meaning":"앞의 내용을 구체적인 예로 설명할 때 씁니다."},
-          {"title":"It is likely that 구조","pattern":"It is (not) likely + 절","example":"...it is not likely I shall ever find again.","meaning":"어떤 일이 일어날 가능성을 말할 때 사용하는 표현입니다."}
-        ],
-        "quiz": [
-          {"q":"vulnerable의 가장 알맞은 뜻은?","choices":["취약한","웅장한","영리한","가벼운"],"answer":0},
-          {"q":"reserve all judgements의 뜻은?","choices":["판단을 확정하다","판단을 유보하다","판단을 기록하다","판단을 번역하다"],"answer":1},
-          {"q":"I was unjustly accused...의 문법은?","choices":["가정법","비교급","수동태","명령문"],"answer":2},
-          {"q":"Whenever는 문장에서 어떤 뜻인가요?","choices":["~하기 전에","~할 때마다","~했더라면","~임에도"],"answer":1},
-          {"q":"as if의 의미는?","choices":["왜냐하면","~하자마자","마치 ~처럼","~뿐만 아니라"],"answer":2},
-          {"q":"privy to의 뜻은?","choices":["~을 모르고 있는","~의 비밀을 알고 있는","~을 피하고 있는","~을 반대하는"],"answer":1}
-        ]
-      }
+      "studyByChapter": [
+        {
+          "chapter": 1,
+          "vocabulary": [
+            {"word":"vulnerable","meaning":"상처받기 쉬운, 취약한"},
+            {"word":"reserve","meaning":"유보하다, 삼가다"},
+            {"word":"privy","meaning":"비밀을 알고 있는"},
+            {"word":"scorn","meaning":"경멸, 멸시"},
+            {"word":"prominent","meaning":"저명한, 두드러진"},
+            {"word":"restless","meaning":"불안한, 안절부절못하는"}
+          ],
+          "grammar": [
+            {"title":"현재완료 진행형","pattern":"have/has been + -ing","meaning":"과거부터 현재까지 계속 이어진 동작을 나타냅니다."},
+            {"title":"Whenever 시간절","pattern":"Whenever + 주어 + 동사","meaning":"‘~할 때마다’처럼 반복되는 상황을 나타냅니다."},
+            {"title":"관계대명사 who","pattern":"사람 명사 + who + 동사","meaning":"앞의 사람을 뒤에서 추가로 설명합니다."}
+          ]
+        },
+        {
+          "chapter": 2,
+          "vocabulary": [
+            {"word":"desolate","meaning":"황량한, 쓸쓸한"},
+            {"word":"ash","meaning":"재, 잿더미"},
+            {"word":"contiguous","meaning":"인접한, 맞닿은"},
+            {"word":"sumptuous","meaning":"호화로운, 사치스러운"},
+            {"word":"vitality","meaning":"활력, 생기"},
+            {"word":"incessant","meaning":"끊임없는"}
+          ],
+          "grammar": [
+            {"title":"수동태","pattern":"be + p.p.","meaning":"행위를 하는 사람보다 행위를 받는 대상에 초점을 둡니다."},
+            {"title":"as though / as if","pattern":"as though + 절","meaning":"‘마치 ~인 것처럼’이라는 비유를 만듭니다."},
+            {"title":"분사 수식","pattern":"-ing / p.p. + 명사","meaning":"분사가 명사를 압축해서 묘사하는 구조입니다."}
+          ]
+        },
+        {
+          "chapter": 3,
+          "vocabulary": [
+            {"word":"orchestra","meaning":"오케스트라, 관현악단"},
+            {"word":"buffet","meaning":"뷔페식 식사"},
+            {"word":"caterer","meaning":"출장 음식 서비스업자"},
+            {"word":"convivial","meaning":"유쾌하고 사교적인"},
+            {"word":"speculation","meaning":"추측, 투기"},
+            {"word":"conduct","meaning":"행동, 행실; 수행하다"}
+          ],
+          "grammar": [
+            {"title":"while 절","pattern":"while + 주어 + 동사","meaning":"두 상황이 동시에 진행되거나 대비될 때 사용합니다."},
+            {"title":"과거진행형","pattern":"was/were + -ing","meaning":"과거의 특정 시점에 진행 중이던 행동을 보여 줍니다."},
+            {"title":"관계절","pattern":"명사 + that/which/who + 절","meaning":"긴 묘사에서 명사를 뒤에서 구체화합니다."}
+          ]
+        },
+        {
+          "chapter": 4,
+          "vocabulary": [
+            {"word":"punctilious","meaning":"격식을 지나치게 따지는, 꼼꼼한"},
+            {"word":"somber","meaning":"침울한, 어두운"},
+            {"word":"incredulous","meaning":"믿기지 않는다는 듯한"},
+            {"word":"disconcerting","meaning":"당황스럽게 하는"},
+            {"word":"hydroplane","meaning":"수상 비행기"},
+            {"word":"acquaintance","meaning":"아는 사람, 지인"}
+          ],
+          "grammar": [
+            {"title":"간접화법","pattern":"said/told + (that) + 절","meaning":"다른 사람이 한 말을 서술자의 문장 안에 넣습니다."},
+            {"title":"현재완료","pattern":"have/has + p.p.","meaning":"과거의 경험이나 결과가 현재와 이어짐을 나타냅니다."},
+            {"title":"동격 표현","pattern":"명사, 명사구,","meaning":"앞의 인물이나 대상을 다른 명사구로 다시 설명합니다."}
+          ]
+        },
+        {
+          "chapter": 5,
+          "vocabulary": [
+            {"word":"revaluation","meaning":"재평가"},
+            {"word":"ecstatic","meaning":"황홀한, 열광적인"},
+            {"word":"bewildered","meaning":"어리둥절한"},
+            {"word":"defunct","meaning":"더 이상 존재하지 않는"},
+            {"word":"gaudy","meaning":"지나치게 화려한"},
+            {"word":"embarrassment","meaning":"당혹감, 난처함"}
+          ],
+          "grammar": [
+            {"title":"과거완료","pattern":"had + p.p.","meaning":"과거의 한 사건보다 더 앞서 일어난 일을 표시합니다."},
+            {"title":"would의 과거 관점","pattern":"would + 동사원형","meaning":"과거 시점에서 바라본 미래나 예상, 반복 행동을 나타냅니다."},
+            {"title":"비교·비유","pattern":"as ... as / as if","meaning":"감정과 장면을 다른 대상에 빗대어 표현합니다."}
+          ]
+        },
+        {
+          "chapter": 6,
+          "vocabulary": [
+            {"word":"meretricious","meaning":"겉만 화려한, 천박하게 번쩍이는"},
+            {"word":"ineffable","meaning":"말로 표현하기 어려운"},
+            {"word":"incarnation","meaning":"화신, 구체화"},
+            {"word":"notoriety","meaning":"악명, 유명세"},
+            {"word":"antecedent","meaning":"선행 사건, 전력"},
+            {"word":"Platonic","meaning":"플라톤 철학의; 정신적인"}
+          ],
+          "grammar": [
+            {"title":"what 명사절","pattern":"what + 주어 + 동사","meaning":"‘~하는 것’을 하나의 명사 덩어리로 만듭니다."},
+            {"title":"whose 관계절","pattern":"명사 + whose + 명사 + 동사","meaning":"앞 명사의 소유 관계를 뒤에서 설명합니다."},
+            {"title":"강조를 위한 삽입구","pattern":"주절, 삽입구, 주절","meaning":"서술자의 평가나 추가 정보를 문장 중간에 끼워 넣습니다."}
+          ]
+        },
+        {
+          "chapter": 7,
+          "vocabulary": [
+            {"word":"tumult","meaning":"소동, 혼란"},
+            {"word":"portentous","meaning":"불길한 조짐을 보이는; 거창한"},
+            {"word":"scrutinize","meaning":"면밀히 살피다"},
+            {"word":"formidable","meaning":"만만치 않은, 위압적인"},
+            {"word":"rancor","meaning":"원한, 악의"},
+            {"word":"dilatory","meaning":"꾸물거리는, 지연시키는"}
+          ],
+          "grammar": [
+            {"title":"조건문","pattern":"if + 절, 주절","meaning":"가정되는 상황과 그 결과를 연결합니다."},
+            {"title":"비교급","pattern":"-er / more + 형용사","meaning":"인물과 상황의 정도 차이를 강조합니다."},
+            {"title":"강한 부정·대조","pattern":"not ... but / no longer","meaning":"인물 관계의 변화와 충돌을 선명하게 보여 줍니다."}
+          ]
+        },
+        {
+          "chapter": 8,
+          "vocabulary": [
+            {"word":"pneumatic","meaning":"공기의, 공기압으로 움직이는"},
+            {"word":"grail","meaning":"성배; 간절히 추구하는 것"},
+            {"word":"indiscernible","meaning":"분간하기 어려운"},
+            {"word":"vigil","meaning":"철야, 밤샘 간호·경계"},
+            {"word":"conceivably","meaning":"생각할 수 있기로는, 어쩌면"},
+            {"word":"sacramental","meaning":"성례의, 신성한 의식과 같은"}
+          ],
+          "grammar": [
+            {"title":"과거완료의 회상","pattern":"had + p.p.","meaning":"현재 서술보다 앞선 기억과 과거를 되짚을 때 반복됩니다."},
+            {"title":"until 시간절","pattern":"until + 주어 + 동사","meaning":"어떤 상태가 특정 시점까지 계속됨을 나타냅니다."},
+            {"title":"could / might 가능성","pattern":"could/might + 동사원형","meaning":"확실하지 않은 가능성이나 추측을 나타냅니다."}
+          ]
+        },
+        {
+          "chapter": 9,
+          "vocabulary": [
+            {"word":"adventitious","meaning":"우연한, 본질적이지 않은"},
+            {"word":"incoherent","meaning":"앞뒤가 맞지 않는, 두서없는"},
+            {"word":"pasquinade","meaning":"풍자문, 조롱 글"},
+            {"word":"provincial","meaning":"지방의; 편협한"},
+            {"word":"elude","meaning":"피하다, 이해되지 않다"},
+            {"word":"borne","meaning":"bear의 과거분사; 떠받쳐진, 운반된"}
+          ],
+          "grammar": [
+            {"title":"회고 서술의 시제","pattern":"과거형 + 과거완료","meaning":"사건 이후의 시점에서 앞선 일을 정리할 때 시제가 교차합니다."},
+            {"title":"as if 비유","pattern":"as if + 절","meaning":"현실과 기억, 인상을 비유적으로 연결합니다."},
+            {"title":"what 명사절","pattern":"what + 주어 + 동사","meaning":"추상적인 생각이나 대상을 ‘~하는 것’으로 묶습니다."}
+          ]
+        }
+      ]
     }
   ]
 }
