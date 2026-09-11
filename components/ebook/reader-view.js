@@ -41,7 +41,7 @@
       hasMore() { return this.visibleCount < this.lines.length }
     },
     template: `
-      <div class="reader-panel-component" :class="{ loading }">
+      <div class="reader-panel-component" :class="{ loading }" style="display:grid;gap:18px">
         <section class="reader-top card compact-card">
           <div class="reading-mode" role="tablist" aria-label="읽기 방식">
             <button type="button" :class="{ active: readMode === 'line' }" @click="$emit('set-mode', 'line')">한 줄씩 읽기</button>
