@@ -28,8 +28,10 @@
   await loadScript('https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js', () => !!window.Vue)
   await loadScript('/components/ebook/chapter-selector.js?v=2', () => !!window.EbookComponents?.ChapterSelector)
   await loadScript('/components/ebook/reader-view.js?v=2', () => !!window.EbookComponents?.ReaderView)
+  await loadScript('/services/background-audio.js?v=1', () => !!window.BackgroundAudio)
 
   const { createApp, ref } = window.Vue
+  const BG = window.BackgroundAudio
   const TRANSLATION_PREFIX = 'toeic-ebook-ko:'
   const state = C.loadState()
   const result = await C.loadBook(bookId)
@@ -47,7 +49,13 @@
   const status = ref('')
   const audioPlaying = ref(false)
   let loadToken = 0
-  let audioToken = 0
+  let chapterAudioUrl = ''
+  let chapterAudioKey = ''
+  let preparingAudio = false
+
+  const chapterAudio = BG.ensureAudio('ebookChapterAudio')
+  const singleAudio = BG.ensureAudio('ebookSingleAudio')
+  chapterAudio.playbackRate = 0.92
 
   function bookState() { return C.getBookState(state, book.id) }
   function patch(patchValue) { return C.patchBookState(state, book.id, patchValue) }
@@ -123,9 +131,21 @@
     C.saveState(state)
   }
 
+  function releaseChapterAudio() {
+    chapterAudio.pause()
+    chapterAudio.removeAttribute('src')
+    chapterAudio.load()
+    if (chapterAudioUrl) URL.revokeObjectURL(chapterAudioUrl)
+    chapterAudioUrl = ''
+    chapterAudioKey = ''
+    audioPlaying.value = false
+    C.$('topAudioStop').hidden = true
+  }
+
   async function loadChapter() {
     const token = ++loadToken
-    stopChapterAudio()
+    releaseChapterAudio()
+    singleAudio.pause()
     loading.value = true
     status.value = '본문 불러오는 중...'
     try {
@@ -174,45 +194,114 @@
     if (showKorean.value) translateVisible()
   }
 
-  function speakSingle(text) {
-    stopChapterAudio()
-    if (!('speechSynthesis' in window)) return
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'en-US'
-    utterance.rate = .92
-    speechSynthesis.speak(utterance)
+  function configureChapterMediaSession() {
+    BG.configureMediaSession(chapterAudio, {
+      title: `${book.title} · Chapter ${chapter.value}`,
+      artist: book.author || 'TOEIC EBOOK',
+      album: 'TOEIC EBOOK · 영어 원서 읽기',
+      artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
+    }, {
+      play: () => chapterAudio.play().catch(() => {}),
+      pause: () => chapterAudio.pause()
+    })
   }
 
-  function setAudioUi(on) {
-    audioPlaying.value = on
-    C.$('topAudioStop').hidden = !on
+  async function speakSingle(text) {
+    releaseChapterAudio()
+    singleAudio.pause()
+    singleAudio.src = BG.ttsUrl(text, 'en-US')
+    singleAudio.playbackRate = 0.92
+    try {
+      BG.configureMediaSession(singleAudio, {
+        title: text,
+        artist: book.title,
+        album: 'TOEIC EBOOK · 문장 듣기'
+      })
+      await singleAudio.play()
+    } catch (_) {}
+  }
+
+  async function prepareChapterTrack() {
+    if (!lines.value.length) return false
+    const key = `ebook:${book.id}:chapter:${chapter.value}:en:v3`
+    if (chapterAudioKey === key && chapterAudio.src) return true
+    if (preparingAudio) return false
+
+    preparingAudio = true
+    status.value = '백그라운드 오디오 준비 중 0%'
+    try {
+      const blob = await BG.buildTtsTrack({
+        key,
+        texts: lines.value.map(line => line.en),
+        lang: 'en-US',
+        maxChars: 170,
+        concurrency: 6,
+        onProgress: (percent, cached) => {
+          status.value = cached ? '저장된 백그라운드 오디오를 불러왔습니다.' : `백그라운드 오디오 준비 중 ${percent}%`
+        }
+      })
+      if (chapterAudioUrl) URL.revokeObjectURL(chapterAudioUrl)
+      chapterAudioUrl = URL.createObjectURL(blob)
+      chapterAudioKey = key
+      chapterAudio.src = chapterAudioUrl
+      chapterAudio.preload = 'auto'
+      chapterAudio.playbackRate = 0.92
+      chapterAudio.load()
+      configureChapterMediaSession()
+      status.value = '백그라운드 재생 준비 완료'
+      return true
+    } catch (error) {
+      console.error(error)
+      status.value = '오디오 준비에 실패했습니다. 다시 눌러주세요.'
+      return false
+    } finally {
+      preparingAudio = false
+    }
+  }
+
+  async function toggleChapterAudio() {
+    if (audioPlaying.value && !chapterAudio.paused) {
+      chapterAudio.pause()
+      return
+    }
+    const ready = await prepareChapterTrack()
+    if (!ready) return
+    configureChapterMediaSession()
+    try {
+      await chapterAudio.play()
+    } catch (error) {
+      console.error(error)
+      status.value = '재생 버튼을 한 번 더 눌러주세요.'
+    }
   }
 
   function stopChapterAudio() {
-    audioToken++
-    try { speechSynthesis.cancel() } catch (_) {}
-    setAudioUi(false)
+    chapterAudio.pause()
+    chapterAudio.currentTime = 0
+    audioPlaying.value = false
+    C.$('topAudioStop').hidden = true
+    status.value = chapterAudioKey ? '백그라운드 재생 준비 완료' : ''
+    try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused' } catch (_) {}
   }
 
-  function toggleChapterAudio() {
-    if (audioPlaying.value) return stopChapterAudio()
-    if (!lines.value.length || !('speechSynthesis' in window)) return
-    setAudioUi(true)
-    const token = ++audioToken
-    let index = 0
-    speechSynthesis.cancel()
-
-    const speakNext = () => {
-      if (!audioPlaying.value || token !== audioToken || index >= lines.value.length) return stopChapterAudio()
-      const utterance = new SpeechSynthesisUtterance(lines.value[index].en)
-      utterance.lang = 'en-US'
-      utterance.rate = .92
-      utterance.onend = () => { index++; speakNext() }
-      utterance.onerror = () => { index++; speakNext() }
-      speechSynthesis.speak(utterance)
-    }
-    setTimeout(speakNext, 80)
-  }
+  chapterAudio.addEventListener('play', () => {
+    audioPlaying.value = true
+    C.$('topAudioStop').hidden = false
+    status.value = '백그라운드 재생 중'
+    try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing' } catch (_) {}
+  })
+  chapterAudio.addEventListener('pause', () => {
+    audioPlaying.value = false
+    C.$('topAudioStop').hidden = true
+    if (chapterAudioKey && chapterAudio.currentTime > 0 && chapterAudio.currentTime < (chapterAudio.duration || Infinity)) status.value = '일시정지 · 다시 누르면 이어서 재생'
+    try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused' } catch (_) {}
+  })
+  chapterAudio.addEventListener('timeupdate', () => BG.updatePosition(chapterAudio))
+  chapterAudio.addEventListener('ended', () => {
+    audioPlaying.value = false
+    C.$('topAudioStop').hidden = true
+    status.value = '챕터 듣기 완료'
+  })
 
   function goPrep() {
     saveReaderState({ activeTab: 'prep', prepChapterNo: chapter.value })
@@ -222,7 +311,10 @@
   C.$('prepTab').addEventListener('click', goPrep)
   C.$('readTab').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
   C.$('topAudioStop').addEventListener('click', stopChapterAudio)
-  window.addEventListener('pagehide', stopChapterAudio)
+  window.addEventListener('beforeunload', () => {
+    saveReaderState()
+    if (chapterAudioUrl) URL.revokeObjectURL(chapterAudioUrl)
+  })
 
   patch({ activeTab: 'reader', chapterNo: chapter.value })
 
