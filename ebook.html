@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#312e81" />
   <meta name="description" content="영어 원서로 공부하는 TOEIC EBOOK" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/ebook.css?v=2" />
+  <link rel="stylesheet" href="/ebook.css?v=3" />
   <title>TOEIC EBOOK</title>
 </head>
 <body>
@@ -14,7 +14,6 @@
     <header class="ebook-topbar">
       <a href="/" class="back-btn" aria-label="홈으로"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></a>
       <div class="top-title"><strong>TOEIC EBOOK</strong><span>영어 원서 학습</span></div>
-      <button id="topAudioStop" class="top-action" type="button" hidden>정지</button>
     </header>
 
     <main id="libraryView" class="library-view">
@@ -23,92 +22,13 @@
         <p>책을 선택하세요.</p>
       </section>
       <section class="library-section">
-        <div class="section-heading"><h2>내 서재</h2><span id="bookCount">1권</span></div>
+        <div class="section-heading"><h2>내 서재</h2><span id="bookCount">0권</span></div>
         <div id="bookList" class="book-list"></div>
-      </section>
-    </main>
-
-    <main id="bookView" class="book-view" hidden>
-      <section class="book-head">
-        <div class="mini-cover"><span>THE GREAT</span><b>GATSBY</b><small>F. SCOTT FITZGERALD</small></div>
-        <div class="book-info">
-          <h1 id="bookTitle">The Great Gatsby</h1>
-          <p id="bookAuthor">F. Scott Fitzgerald</p>
-          <div class="book-meta"><span id="bookLevel">중상급</span><span id="bookChapters">9 Chapters</span></div>
-        </div>
-      </section>
-
-      <nav class="book-tabs" aria-label="책 메뉴">
-        <button id="prepTab" class="active" type="button">읽기 전 학습</button>
-        <button id="readTab" type="button">책 읽기</button>
-      </nav>
-
-      <section id="prepPanel" class="prep-panel">
-        <section class="chapter-control card compact-card">
-          <div class="control-head"><strong>읽기 전 학습</strong><span id="prepChapterProgress">0%</span></div>
-          <div class="chapter-row">
-            <button id="prepPrevChapter" class="square-btn" type="button" aria-label="이전 챕터"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-            <label class="chapter-select-wrap"><span>CHAPTER</span><select id="prepChapterSelect"></select></label>
-            <button id="prepNextChapter" class="square-btn" type="button" aria-label="다음 챕터"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
-          </div>
-        </section>
-
-        <section class="study-section card">
-          <div class="study-title"><h2>단어</h2><span id="vocabCount"></span></div>
-          <div id="vocabList" class="vocab-list"></div>
-        </section>
-
-        <section class="study-section card">
-          <div class="study-title"><h2>문법</h2><span id="grammarCount"></span></div>
-          <div id="grammarList" class="grammar-list"></div>
-        </section>
-
-        <button id="finishPrepBtn" class="finish-prep" type="button">이 챕터 읽기</button>
-      </section>
-
-      <section id="readerPanel" class="reader-panel" hidden>
-        <section class="reader-top card compact-card">
-          <div class="reading-mode" role="tablist" aria-label="읽기 방식">
-            <button id="lineModeBtn" class="active" type="button">한 줄씩 읽기</button>
-            <button id="fullModeBtn" type="button">영어 전체 읽기</button>
-          </div>
-
-          <div class="chapter-row reader-chapter-row">
-            <button id="readPrevChapter" class="square-btn" type="button" aria-label="이전 챕터"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-            <label class="chapter-select-wrap"><span>CHAPTER</span><select id="chapterSelect"></select></label>
-            <button id="readNextChapter" class="square-btn" type="button" aria-label="다음 챕터"><svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></button>
-          </div>
-
-          <div class="reader-actions">
-            <button id="chapterAudioBtn" class="audio-main-btn" type="button">
-              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7-11-7Z"/></svg><span>챕터 듣기</span>
-            </button>
-            <button id="koreanToggle" class="korean-toggle" type="button">
-              <svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg><span>한국어 숨기기</span>
-            </button>
-          </div>
-        </section>
-
-        <section class="chapter-head">
-          <div><p id="chapterLabel">CHAPTER I</p><h2 id="chapterTitleDisplay">The Great Gatsby</h2></div>
-          <span id="readerCount"></span>
-        </section>
-
-        <section id="lineReaderView">
-          <section id="readerLines" class="reader-lines"></section>
-          <button id="loadMoreBtn" class="load-more" type="button">다음 문장 더 보기</button>
-        </section>
-
-        <section id="fullReaderView" class="full-reader-view" hidden>
-          <article id="fullEnglishText" class="full-english-text"></article>
-        </section>
-
-        <div id="readerStatus" class="reader-status" aria-live="polite"></div>
       </section>
     </main>
   </div>
 
-  <script src="/ebook-page-router.js?v=1"></script>
-  <script src="/ebook.js?v=2"></script>
+  <script src="/ebook-common.js?v=1"></script>
+  <script src="/ebook-library.js?v=1"></script>
 </body>
 </html>
