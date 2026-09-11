@@ -33,3 +33,5 @@ python -m http.server 8080
 
 ## Vercel
 이 저장소를 그대로 Vercel에 연결하면 됩니다. Framework Preset은 `Other` 또는 자동 감지 기본값으로 두고 별도 Build Command는 필요 없습니다.
+
+<!-- production redeploy trigger: 2026-09-11T10:52+09:00 -->
