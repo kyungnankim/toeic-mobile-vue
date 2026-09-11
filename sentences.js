@@ -1,10 +1,10 @@
 (() => {
-  const DATA_URL = '/api/lc400'
-  const STATE_KEY = 'toeic-lc400-state-v1'
-  const DB_NAME = 'toeic-lc400-audio-v1'
+  const STATE_KEY = 'toeic-lc400-state-v2'
+  const DB_NAME = 'toeic-lc400-audio-v2'
   const STORE = 'tracks'
   const $ = id => document.getElementById(id)
   const audio = $('audio')
+
   let data = null
   let sectionIndex = 0
   let sentenceIndex = 0
@@ -25,19 +25,56 @@
   }
 
   function loadState() {
-    try { return JSON.parse(localStorage.getItem(STATE_KEY) || '{}') } catch (_) { return {} }
+    try { return JSON.parse(localStorage.getItem(STATE_KEY) || localStorage.getItem('toeic-lc400-state-v1') || '{}') } catch (_) { return {} }
   }
+
   function saveState() {
-    localStorage.setItem(STATE_KEY, JSON.stringify({
-      sectionIndex, sentenceIndex,
-      listenMode: settings.listenMode, endMode: settings.endMode,
-      enRate: settings.enRate, koRate: settings.koRate,
-      showKorean: settings.showKorean
-    }))
+    try {
+      localStorage.setItem(STATE_KEY, JSON.stringify({
+        sectionIndex, sentenceIndex,
+        listenMode: settings.listenMode,
+        endMode: settings.endMode,
+        enRate: settings.enRate,
+        koRate: settings.koRate,
+        showKorean: settings.showKorean,
+        currentTime: Number(audio.currentTime || 0)
+      }))
+    } catch (_) {}
   }
-  function fmt(n) { return Number(n).toFixed(n % 1 ? 2 : 1).replace(/0$/, '0') + 'x' }
+
   function currentSection() { return data.sections[sectionIndex] }
   function currentSentence() { return currentSection().sentences[sentenceIndex] }
+  function fmt(n) { return `${Number(n).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')}x` }
+
+  async function loadStaticDataset() {
+    const response = await fetch('/data/lc-sentences-400.gz.b64', { cache: 'no-cache' })
+    if (!response.ok) throw new Error(`static data ${response.status}`)
+    const b64 = (await response.text()).trim()
+    if (!b64.startsWith('H4sI')) throw new Error('invalid compressed dataset')
+    if (!('DecompressionStream' in window)) throw new Error('gzip browser API unsupported')
+
+    const binary = atob(b64)
+    const bytes = new Uint8Array(binary.length)
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))
+    return JSON.parse(await new Response(stream).text())
+  }
+
+  async function loadDataset() {
+    let parsed = null
+    try {
+      parsed = await loadStaticDataset()
+    } catch (staticError) {
+      console.warn('LC400 static fallback failed', staticError)
+      const response = await fetch('/api/lc400', { cache: 'no-store' })
+      if (!response.ok) throw new Error(`LC400 API ${response.status}`)
+      parsed = await response.json()
+    }
+    if (parsed?.total !== 400 || !Array.isArray(parsed.sections) || parsed.sections.length !== 40) {
+      throw new Error('LC400 dataset validation failed')
+    }
+    return parsed
+  }
 
   function openDb() {
     return new Promise((resolve, reject) => {
@@ -51,9 +88,11 @@
       req.onerror = () => reject(req.error)
     })
   }
+
   async function dbGet(key) {
     try {
-      const db = await openDb(); if (!db) return null
+      const db = await openDb()
+      if (!db) return null
       return await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE, 'readonly')
         const req = tx.objectStore(STORE).get(key)
@@ -62,12 +101,14 @@
       })
     } catch (_) { return null }
   }
-  async function dbPut(key, val) {
+
+  async function dbPut(key, value) {
     try {
-      const db = await openDb(); if (!db) return
+      const db = await openDb()
+      if (!db) return
       await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE, 'readwrite')
-        tx.objectStore(STORE).put(val, key)
+        tx.objectStore(STORE).put(value, key)
         tx.oncomplete = resolve
         tx.onerror = () => reject(tx.error)
       })
@@ -75,314 +116,455 @@
   }
 
   function trackKey(idx) {
-    return `s${idx+1}-${settings.listenMode}-en${settings.enRate}-ko${settings.koRate}-v1`
+    return `section:${idx + 1}:${settings.listenMode}:en${settings.enRate}:ko${settings.koRate}:v2`
   }
+
   function ttsUrl(text, lang) {
-    return `/api/tts?lang=${encodeURIComponent(lang)}&text=${encodeURIComponent(String(text).slice(0,190))}`
+    return `/api/tts?lang=${encodeURIComponent(lang)}&text=${encodeURIComponent(String(text).slice(0, 190))}`
   }
+
   async function mapLimit(list, limit, worker) {
-    const out = new Array(list.length); let cursor = 0
-    const runners = Array.from({length: Math.min(limit, list.length)}, async () => {
+    const out = new Array(list.length)
+    let cursor = 0
+    const runners = Array.from({ length: Math.min(limit, list.length) }, async () => {
       while (true) {
-        const i = cursor++
-        if (i >= list.length) return
-        out[i] = await worker(list[i], i)
+        const index = cursor++
+        if (index >= list.length) return
+        out[index] = await worker(list[index], index)
       }
     })
     await Promise.all(runners)
     return out
   }
-  async function decode(ctx, text, lang) {
-    const res = await fetch(ttsUrl(text, lang), {cache:'force-cache'})
-    if (!res.ok) throw new Error(`TTS ${res.status}`)
-    const buf = await res.arrayBuffer()
-    return await ctx.decodeAudioData(buf.slice(0))
+
+  async function decode(ctx, text, lang, attempt = 0) {
+    try {
+      const res = await fetch(ttsUrl(text, lang), { cache: 'force-cache' })
+      if (!res.ok) throw new Error(`TTS ${res.status}`)
+      const buf = await res.arrayBuffer()
+      return await ctx.decodeAudioData(buf.slice(0))
+    } catch (error) {
+      if (attempt < 2) {
+        await new Promise(resolve => setTimeout(resolve, 300 * (attempt + 1)))
+        return decode(ctx, text, lang, attempt + 1)
+      }
+      throw error
+    }
   }
+
   function encodeWav(buffer) {
-    const ch = buffer.getChannelData(0), sr = buffer.sampleRate
-    const arr = new ArrayBuffer(44 + ch.length * 2), v = new DataView(arr)
-    const w = (o,s) => { for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)) }
-    w(0,'RIFF'); v.setUint32(4,36+ch.length*2,true); w(8,'WAVE'); w(12,'fmt ')
-    v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true)
-    v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true)
-    w(36,'data'); v.setUint32(40,ch.length*2,true)
-    let o=44
-    for(let i=0;i<ch.length;i++,o+=2){ const s=Math.max(-1,Math.min(1,ch[i])); v.setInt16(o,s<0?s*0x8000:s*0x7fff,true) }
-    return new Blob([arr],{type:'audio/wav'})
+    const ch = buffer.getChannelData(0)
+    const sr = buffer.sampleRate
+    const arr = new ArrayBuffer(44 + ch.length * 2)
+    const view = new DataView(arr)
+    const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)) }
+    write(0, 'RIFF')
+    view.setUint32(4, 36 + ch.length * 2, true)
+    write(8, 'WAVE')
+    write(12, 'fmt ')
+    view.setUint32(16, 16, true)
+    view.setUint16(20, 1, true)
+    view.setUint16(22, 1, true)
+    view.setUint32(24, sr, true)
+    view.setUint32(28, sr * 2, true)
+    view.setUint16(32, 2, true)
+    view.setUint16(34, 16, true)
+    write(36, 'data')
+    view.setUint32(40, ch.length * 2, true)
+    let offset = 44
+    for (let i = 0; i < ch.length; i++, offset += 2) {
+      const sample = Math.max(-1, Math.min(1, ch[i]))
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true)
+    }
+    return new Blob([arr], { type: 'audio/wav' })
+  }
+
+  function setBuildUi(show, percent = 0) {
+    $('buildWrap').hidden = !show
+    $('buildPercent').textContent = `${percent}%`
+    $('buildBar').style.width = `${percent}%`
+    $('statusText').textContent = show ? '백그라운드 오디오 준비 중' : '재생 준비 완료'
   }
 
   async function buildTrack(idx, showProgress = true) {
     const key = trackKey(idx)
     const cached = await dbGet(key)
-    if (cached?.blob && cached?.timeline) return {...cached,key}
+    if (cached?.blob && cached?.timeline) return { ...cached, key }
     if (prefetching.has(key)) return prefetching.get(key)
 
     const task = (async () => {
       const AudioCtx = window.AudioContext || window.webkitAudioContext
       const OfflineCtx = window.OfflineAudioContext || window.webkitOfflineAudioContext
-      if (!AudioCtx || !OfflineCtx) throw new Error('audio unsupported')
+      if (!AudioCtx || !OfflineCtx) throw new Error('Web Audio unsupported')
       const ctx = new AudioCtx()
       try {
         const list = data.sections[idx].sentences
         let completed = 0
         if (showProgress) setBuildUi(true, 2)
-        const clips = await mapLimit(list, 5, async item => {
-          const enP = decode(ctx,item.en,'en-US')
-          const koP = settings.listenMode === 'both' ? decode(ctx,item.ko,'ko-KR') : Promise.resolve(null)
-          const [en,ko] = await Promise.all([enP,koP])
+        const clips = await mapLimit(list, 4, async item => {
+          const enPromise = decode(ctx, item.en, 'en-US')
+          const koPromise = settings.listenMode === 'both' ? decode(ctx, item.ko, 'ko-KR') : Promise.resolve(null)
+          const [en, ko] = await Promise.all([enPromise, koPromise])
           completed++
-          if (showProgress) setBuildUi(true, Math.round(completed/list.length*70))
-          return {en,ko}
+          if (showProgress) setBuildUi(true, Math.round(completed / list.length * 70))
+          return { en, ko }
         })
-        const gap1=.20, gap2=.55, entries=[]
-        let total=0
-        clips.forEach((c,i)=>{
-          const start=total
-          total += c.en.duration/Math.max(.7,settings.enRate)
-          if(c.ko){ total += gap1 + c.ko.duration/Math.max(.75,settings.koRate) }
-          total += gap2
-          entries.push({index:i,start,end:total})
+
+        const gapBetweenLanguages = 0.22
+        const gapBetweenSentences = 0.58
+        const entries = []
+        let total = 0
+        clips.forEach((clip, index) => {
+          const start = total
+          total += clip.en.duration / Math.max(0.7, settings.enRate)
+          if (clip.ko) total += gapBetweenLanguages + clip.ko.duration / Math.max(0.75, settings.koRate)
+          total += gapBetweenSentences
+          entries.push({ index, start, end: total })
         })
-        const sr=24000
-        const off=new OfflineCtx(1,Math.max(1,Math.ceil(total*sr)),sr)
-        let cur=0
-        clips.forEach(c=>{
-          const en=off.createBufferSource(); en.buffer=c.en; en.playbackRate.value=Math.max(.7,settings.enRate); en.connect(off.destination); en.start(cur)
-          cur += c.en.duration/Math.max(.7,settings.enRate)
-          if(c.ko){
-            cur += gap1
-            const ko=off.createBufferSource(); ko.buffer=c.ko; ko.playbackRate.value=Math.max(.75,settings.koRate); ko.connect(off.destination); ko.start(cur)
-            cur += c.ko.duration/Math.max(.75,settings.koRate)
+
+        const sampleRate = 24000
+        const offline = new OfflineCtx(1, Math.max(1, Math.ceil(total * sampleRate)), sampleRate)
+        let cursor = 0
+        clips.forEach(clip => {
+          const en = offline.createBufferSource()
+          en.buffer = clip.en
+          en.playbackRate.value = Math.max(0.7, settings.enRate)
+          en.connect(offline.destination)
+          en.start(cursor)
+          cursor += clip.en.duration / Math.max(0.7, settings.enRate)
+          if (clip.ko) {
+            cursor += gapBetweenLanguages
+            const ko = offline.createBufferSource()
+            ko.buffer = clip.ko
+            ko.playbackRate.value = Math.max(0.75, settings.koRate)
+            ko.connect(offline.destination)
+            ko.start(cursor)
+            cursor += clip.ko.duration / Math.max(0.75, settings.koRate)
           }
-          cur += gap2
+          cursor += gapBetweenSentences
         })
-        if(showProgress) setBuildUi(true,82)
-        const rendered=await off.startRendering()
-        if(showProgress) setBuildUi(true,94)
-        const value={blob:encodeWav(rendered),timeline:entries,section:idx,createdAt:Date.now()}
-        await dbPut(key,value)
-        if(showProgress) setBuildUi(false,100)
-        return {...value,key}
+
+        if (showProgress) setBuildUi(true, 82)
+        const rendered = await offline.startRendering()
+        if (showProgress) setBuildUi(true, 95)
+        const value = { blob: encodeWav(rendered), timeline: entries, section: idx, createdAt: Date.now() }
+        await dbPut(key, value)
+        if (showProgress) setBuildUi(false, 100)
+        return { ...value, key }
       } finally {
-        try{await ctx.close()}catch(_){}
+        try { await ctx.close() } catch (_) {}
       }
     })()
-    prefetching.set(key,task)
-    try { return await task } finally { prefetching.delete(key) }
-  }
 
-  function setBuildUi(show,pct=0){
-    $('buildWrap').hidden=!show
-    $('buildPercent').textContent=`${pct}%`
-    $('buildBar').style.width=`${pct}%`
-    $('statusText').textContent=show?'오디오 준비 중':'재생 준비 완료'
+    prefetching.set(key, task)
+    try { return await task } finally { prefetching.delete(key) }
   }
 
   function attachTrack(track, keepSentence = true) {
     ignoreEnded = true
     audio.pause()
-    if(objectUrl) URL.revokeObjectURL(objectUrl)
-    objectUrl=URL.createObjectURL(track.blob)
-    currentTrackKey=track.key
-    timeline=track.timeline
-    audio.src=objectUrl
+    if (objectUrl) URL.revokeObjectURL(objectUrl)
+    objectUrl = URL.createObjectURL(track.blob)
+    currentTrackKey = track.key
+    timeline = track.timeline
+    audio.src = objectUrl
+    audio.preload = 'auto'
     audio.load()
-    const target = keepSentence ? timeline.find(x=>x.index===sentenceIndex) : timeline[0]
-    const setPos=()=>{ if(target) audio.currentTime=target.start; ignoreEnded=false }
-    if(audio.readyState>=1) setPos()
-    else audio.addEventListener('loadedmetadata',setPos,{once:true})
+    const target = keepSentence ? timeline.find(point => point.index === sentenceIndex) : timeline[0]
+    const setPosition = () => {
+      if (target) audio.currentTime = target.start
+      ignoreEnded = false
+      configureMediaSession()
+    }
+    if (audio.readyState >= 1) setPosition()
+    else audio.addEventListener('loadedmetadata', setPosition, { once: true })
   }
 
-  async function ensureTrack(autoPlay=false){
-    const key=trackKey(sectionIndex)
-    if(currentTrackKey===key && timeline.length){ if(autoPlay) return playAudio(); return true }
-    pendingAutoPlay=autoPlay
-    try{
-      const tr=await buildTrack(sectionIndex,true)
-      attachTrack(tr,true)
-      $('statusText').textContent='재생 준비 완료'
-      if(pendingAutoPlay){ pendingAutoPlay=false; await playAudio() }
+  async function ensureTrack(autoPlay = false) {
+    const key = trackKey(sectionIndex)
+    if (currentTrackKey === key && timeline.length) {
+      if (autoPlay) await playAudio()
       return true
-    }catch(e){
-      console.error(e); pendingAutoPlay=false; setBuildUi(false,0)
-      $('statusText').textContent='오디오 준비 실패'
-      $('prepareBtn').hidden=false
+    }
+    pendingAutoPlay = autoPlay
+    try {
+      const track = await buildTrack(sectionIndex, true)
+      attachTrack(track, true)
+      $('statusText').textContent = '재생 준비 완료 · 백그라운드 재생 가능'
+      if (pendingAutoPlay) {
+        pendingAutoPlay = false
+        await playAudio()
+      }
+      return true
+    } catch (error) {
+      console.error(error)
+      pendingAutoPlay = false
+      setBuildUi(false, 0)
+      $('statusText').textContent = '오디오 준비 실패 · 다시 눌러주세요'
+      $('prepareBtn').hidden = false
       return false
     }
   }
 
-  async function playAudio(){
+  async function playAudio() {
     configureMediaSession()
-    try{
+    try {
       await audio.play()
       setPlayUi(true)
-      $('statusText').textContent='자동 듣기 중'
+      $('statusText').textContent = '자동 듣기 중 · 백그라운드 재생 가능'
       prefetchNext()
-    }catch(e){
-      console.error(e); $('statusText').textContent='재생 버튼을 다시 눌러주세요'
+    } catch (error) {
+      console.error(error)
+      $('statusText').textContent = '재생 버튼을 한 번 더 눌러주세요'
     }
   }
-  async function togglePlay(){
-    if(!audio.paused){ audio.pause(); return }
-    if(currentTrackKey===trackKey(sectionIndex) && timeline.length) return playAudio()
+
+  async function togglePlay() {
+    if (!audio.paused) {
+      audio.pause()
+      return
+    }
+    if (currentTrackKey === trackKey(sectionIndex) && timeline.length) return playAudio()
     await ensureTrack(true)
   }
-  function setPlayUi(on){
-    $('playIcon').hidden=on; $('pauseIcon').hidden=!on
-    $('playBtn').setAttribute('aria-label',on?'일시정지':'자동 듣기 시작')
+
+  function setPlayUi(on) {
+    $('playIcon').hidden = on
+    $('pauseIcon').hidden = !on
+    $('playBtn').setAttribute('aria-label', on ? '일시정지' : '자동 듣기 시작')
   }
 
-  function seekSentence(idx, shouldPlay = !audio.paused){
-    if(idx<0){ changeSection(sectionIndex-1,shouldPlay); return }
-    if(idx>9){ changeSection(sectionIndex+1,shouldPlay); return }
-    sentenceIndex=idx
+  function updateSentenceFromTime() {
+    if (!timeline.length || !Number.isFinite(audio.currentTime)) return
+    const found = timeline.find(point => audio.currentTime >= point.start && audio.currentTime < point.end)
+    if (found && found.index !== sentenceIndex) {
+      sentenceIndex = found.index
+      renderSentence(false)
+    }
+  }
+
+  function seekSentence(nextIndex, shouldPlay = !audio.paused) {
+    if (nextIndex < 0) return changeSection(sectionIndex - 1, shouldPlay)
+    if (nextIndex > 9) return changeSection(sectionIndex + 1, shouldPlay)
+    sentenceIndex = nextIndex
     renderSentence()
-    const point=timeline.find(x=>x.index===sentenceIndex)
-    if(currentTrackKey===trackKey(sectionIndex)&&point){
-      audio.currentTime=point.start
-      if(shouldPlay) playAudio()
+    const point = timeline.find(item => item.index === sentenceIndex)
+    if (currentTrackKey === trackKey(sectionIndex) && point) {
+      audio.currentTime = point.start
+      if (shouldPlay) playAudio()
     } else ensureTrack(shouldPlay)
     saveState()
   }
 
-  async function changeSection(idx, shouldPlay=false){
-    const wasPlaying=shouldPlay || !audio.paused
-    audio.pause(); setPlayUi(false)
-    sectionIndex=(idx+data.sections.length)%data.sections.length
-    sentenceIndex=0; timeline=[]; currentTrackKey=''
-    if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=''}
-    audio.removeAttribute('src'); audio.load()
-    renderSection(); saveState()
-    setTimeout(()=>ensureTrack(wasPlaying),60)
-  }
-
-  async function handleEnded(){
-    if(ignoreEnded) return
+  async function changeSection(nextIndex, shouldPlay = false) {
+    const wasPlaying = shouldPlay || !audio.paused
+    audio.pause()
     setPlayUi(false)
-    if(settings.endMode==='repeat'){
-      sentenceIndex=0; renderSentence(); audio.currentTime=0; await playAudio(); return
+    sectionIndex = (nextIndex + data.sections.length) % data.sections.length
+    sentenceIndex = 0
+    timeline = []
+    currentTrackKey = ''
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl)
+      objectUrl = ''
     }
-    await changeSection(sectionIndex+1,true)
+    audio.removeAttribute('src')
+    audio.load()
+    renderSection()
+    saveState()
+    if (wasPlaying) setTimeout(() => ensureTrack(true), 80)
   }
 
-  function prefetchNext(){
-    if(settings.endMode!=='next') return
-    const next=(sectionIndex+1)%data.sections.length
-    const key=trackKey(next)
-    if(prefetching.has(key)) return
-    setTimeout(()=>buildTrack(next,false).catch(()=>{}),700)
+  async function handleEnded() {
+    if (ignoreEnded) return
+    setPlayUi(false)
+    if (settings.endMode === 'repeat') {
+      sentenceIndex = 0
+      renderSentence()
+      audio.currentTime = 0
+      await playAudio()
+      return
+    }
+    await changeSection(sectionIndex + 1, true)
   }
 
-  function configureMediaSession(){
-    if(!('mediaSession' in navigator)) return
-    const s=currentSentence()
-    try{
-      navigator.mediaSession.metadata=new MediaMetadata({
-        title:s.en, artist:s.ko, album:`TOEIC LC 400 · 구간 ${sectionIndex+1} ${currentSection().title}`
+  function prefetchNext() {
+    if (settings.endMode !== 'next') return
+    const next = (sectionIndex + 1) % data.sections.length
+    const key = trackKey(next)
+    if (prefetching.has(key)) return
+    setTimeout(() => buildTrack(next, false).catch(() => {}), 800)
+  }
+
+  function configureMediaSession() {
+    if (!('mediaSession' in navigator) || !data) return
+    const sentence = currentSentence()
+    try {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: sentence.en,
+        artist: sentence.ko,
+        album: `TOEIC LC 400 · ${sectionIndex + 1}. ${currentSection().title}`,
+        artwork: [{ src: '/icon.svg', sizes: '512x512', type: 'image/svg+xml' }]
       })
-    }catch(_){}
-    const set=(n,fn)=>{try{navigator.mediaSession.setActionHandler(n,fn)}catch(_){}}
-    set('play',()=>playAudio()); set('pause',()=>audio.pause())
-    set('nexttrack',()=>seekSentence(sentenceIndex+1,true)); set('previoustrack',()=>seekSentence(sentenceIndex-1,true))
-    set('seekforward',d=>audio.currentTime=Math.min(audio.duration||Infinity,audio.currentTime+(d.seekOffset||10)))
-    set('seekbackward',d=>audio.currentTime=Math.max(0,audio.currentTime-(d.seekOffset||10)))
+    } catch (_) {}
+    const set = (name, fn) => { try { navigator.mediaSession.setActionHandler(name, fn) } catch (_) {} }
+    set('play', () => playAudio())
+    set('pause', () => audio.pause())
+    set('nexttrack', () => seekSentence(sentenceIndex + 1, true))
+    set('previoustrack', () => seekSentence(sentenceIndex - 1, true))
+    set('seekforward', details => { audio.currentTime = Math.min(audio.duration || Infinity, audio.currentTime + (details.seekOffset || 10)) })
+    set('seekbackward', details => { audio.currentTime = Math.max(0, audio.currentTime - (details.seekOffset || 10)) })
+    set('seekto', details => { if (Number.isFinite(details.seekTime)) audio.currentTime = details.seekTime })
   }
 
-  function renderSection(){
-    const sec=currentSection()
-    $('sectionTitle').textContent=`${sec.section}. ${sec.title}`
-    $('sectionSelect').value=String(sectionIndex)
+  function updateMediaPosition() {
+    if (!('mediaSession' in navigator)) return
+    try {
+      if (Number.isFinite(audio.duration) && audio.duration > 0 && Number.isFinite(audio.currentTime)) {
+        navigator.mediaSession.setPositionState({
+          duration: audio.duration,
+          playbackRate: audio.playbackRate || 1,
+          position: Math.min(audio.currentTime, audio.duration)
+        })
+      }
+    } catch (_) {}
+  }
+
+  function renderSection() {
+    const section = currentSection()
+    $('sectionTitle').textContent = `${section.section}. ${section.title}`
+    $('sectionSelect').value = String(sectionIndex)
     renderSentence()
     renderList()
   }
-  function renderSentence(){
-    const s=currentSentence()
-    $('englishText').textContent=s.en
-    $('koreanText').textContent=s.ko
-    $('koreanText').classList.toggle('hidden',!settings.showKorean)
-    $('sentenceNo').textContent=`${sentenceIndex+1} / 10`
-    $('globalNo').textContent=s.id
-    $('progressBar').style.width=`${((sentenceIndex+1)/10)*100}%`
-    document.querySelectorAll('.sentence-item').forEach((el,i)=>el.classList.toggle('active',i===sentenceIndex))
-    configureMediaSession(); saveState()
+
+  function renderSentence(updateMedia = true) {
+    const sentence = currentSentence()
+    $('englishText').textContent = sentence.en
+    $('koreanText').textContent = sentence.ko
+    $('koreanText').classList.toggle('hidden', !settings.showKorean)
+    $('sentenceNo').textContent = `${sentenceIndex + 1} / 10`
+    $('globalNo').textContent = sentence.id
+    $('progressBar').style.width = `${((sentenceIndex + 1) / 10) * 100}%`
+    document.querySelectorAll('.sentence-item').forEach((element, index) => element.classList.toggle('active', index === sentenceIndex))
+    if (updateMedia) configureMediaSession()
+    saveState()
   }
-  function renderList(){
-    const box=$('sentenceList'); box.innerHTML=''
-    currentSection().sentences.forEach((s,i)=>{
-      const b=document.createElement('button'); b.className='sentence-item'+(i===sentenceIndex?' active':'')
-      b.innerHTML=`<span class="num">${i+1}</span><span><b></b><small></small></span>`
-      b.querySelector('b').textContent=s.en; b.querySelector('small').textContent=s.ko
-      b.addEventListener('click',()=>seekSentence(i,false)); box.appendChild(b)
+
+  function renderList() {
+    const box = $('sentenceList')
+    box.innerHTML = ''
+    currentSection().sentences.forEach((sentence, index) => {
+      const button = document.createElement('button')
+      button.className = `sentence-item${index === sentenceIndex ? ' active' : ''}`
+      button.innerHTML = '<span class="num"></span><span><b></b><small></small></span>'
+      button.querySelector('.num').textContent = index + 1
+      button.querySelector('b').textContent = sentence.en
+      button.querySelector('small').textContent = sentence.ko
+      button.addEventListener('click', () => seekSentence(index, false))
+      box.appendChild(button)
     })
   }
 
-  function speakOne(){
-    const s=currentSentence()
-    if(!('speechSynthesis'in window)) return
-    speechSynthesis.cancel()
-    const en=new SpeechSynthesisUtterance(s.en); en.lang='en-US'; en.rate=settings.enRate
-    if(settings.listenMode==='both'){
-      en.onend=()=>{ const ko=new SpeechSynthesisUtterance(s.ko); ko.lang='ko-KR'; ko.rate=settings.koRate; speechSynthesis.speak(ko) }
+  async function speakOne() {
+    const sentence = currentSentence()
+    const wasPlaying = !audio.paused
+    if (wasPlaying) audio.pause()
+    const single = new Audio(ttsUrl(sentence.en, 'en-US'))
+    single.playbackRate = settings.enRate
+    try { await single.play() } catch (_) {}
+  }
+
+  function invalidateTrack() {
+    const wasPlaying = !audio.paused
+    audio.pause()
+    setPlayUi(false)
+    timeline = []
+    currentTrackKey = ''
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl)
+      objectUrl = ''
     }
-    speechSynthesis.speak(en)
+    audio.removeAttribute('src')
+    audio.load()
+    saveState()
+    $('statusText').textContent = '설정 변경됨 · 재생을 누르면 새 오디오를 준비합니다.'
+    if (wasPlaying) setTimeout(() => ensureTrack(true), 80)
   }
 
-  function wire(){
-    $('playBtn').addEventListener('click',togglePlay)
-    $('prepareBtn').addEventListener('click',()=>{ $('prepareBtn').hidden=true; ensureTrack(false) })
-    $('backSentence').addEventListener('click',()=>seekSentence(sentenceIndex-1,!audio.paused))
-    $('nextSentence').addEventListener('click',()=>seekSentence(sentenceIndex+1,!audio.paused))
-    $('prevSection').addEventListener('click',()=>changeSection(sectionIndex-1,!audio.paused))
-    $('nextSection').addEventListener('click',()=>changeSection(sectionIndex+1,!audio.paused))
-    $('sectionSelect').addEventListener('change',e=>changeSection(Number(e.target.value),!audio.paused))
-    $('sectionPickerBtn').addEventListener('click',()=>{ try{$('sectionSelect').showPicker()}catch(_){$('sectionSelect').focus()} })
-    $('speakOne').addEventListener('click',speakOne)
-    $('listenMode').addEventListener('change',e=>{settings.listenMode=e.target.value; invalidateTrack()})
-    $('endMode').addEventListener('change',e=>{settings.endMode=e.target.value; saveState(); if(!audio.paused)prefetchNext()})
-    $('enRate').addEventListener('input',e=>{$('enRateText').textContent=fmt(Number(e.target.value))})
-    $('koRate').addEventListener('input',e=>{$('koRateText').textContent=fmt(Number(e.target.value))})
-    $('enRate').addEventListener('change',e=>{settings.enRate=Number(e.target.value);invalidateTrack()})
-    $('koRate').addEventListener('change',e=>{settings.koRate=Number(e.target.value);invalidateTrack()})
-    $('showKorean').addEventListener('change',e=>{settings.showKorean=e.target.checked;renderSentence()})
-    audio.addEventListener('play',()=>setPlayUi(true))
-    audio.addEventListener('pause',()=>setPlayUi(false))
-    audio.addEventListener('ended',handleEnded)
-    audio.addEventListener('timeupdate',()=>{
-      if(!timeline.length)return
-      const p=timeline.find(x=>audio.currentTime>=x.start&&audio.currentTime<x.end)||timeline[timeline.length-1]
-      if(p&&p.index!==sentenceIndex){sentenceIndex=p.index;renderSentence()}
-      try{
-        if('mediaSession'in navigator && Number.isFinite(audio.duration)&&audio.duration>0)
-          navigator.mediaSession.setPositionState({duration:audio.duration,playbackRate:1,position:Math.min(audio.currentTime,audio.duration)})
-      }catch(_){}
+  function wire() {
+    $('playBtn').addEventListener('click', togglePlay)
+    $('prepareBtn').addEventListener('click', () => { $('prepareBtn').hidden = true; ensureTrack(false) })
+    $('backSentence').addEventListener('click', () => seekSentence(sentenceIndex - 1, !audio.paused))
+    $('nextSentence').addEventListener('click', () => seekSentence(sentenceIndex + 1, !audio.paused))
+    $('prevSection').addEventListener('click', () => changeSection(sectionIndex - 1, !audio.paused))
+    $('nextSection').addEventListener('click', () => changeSection(sectionIndex + 1, !audio.paused))
+    $('sectionSelect').addEventListener('change', event => changeSection(Number(event.target.value), !audio.paused))
+    $('sectionPickerBtn').addEventListener('click', () => { try { $('sectionSelect').showPicker() } catch (_) { $('sectionSelect').focus() } })
+    $('speakOne').addEventListener('click', speakOne)
+    $('listenMode').addEventListener('change', event => { settings.listenMode = event.target.value; invalidateTrack() })
+    $('endMode').addEventListener('change', event => { settings.endMode = event.target.value; saveState(); if (!audio.paused) prefetchNext() })
+    $('enRate').addEventListener('input', event => { $('enRateText').textContent = fmt(Number(event.target.value)) })
+    $('enRate').addEventListener('change', event => { settings.enRate = Number(event.target.value); invalidateTrack() })
+    $('koRate').addEventListener('input', event => { $('koRateText').textContent = fmt(Number(event.target.value)) })
+    $('koRate').addEventListener('change', event => { settings.koRate = Number(event.target.value); invalidateTrack() })
+    $('showKorean').addEventListener('change', event => {
+      settings.showKorean = event.target.checked
+      $('koreanText').classList.toggle('hidden', !settings.showKorean)
+      saveState()
+    })
+
+    audio.addEventListener('ended', handleEnded)
+    audio.addEventListener('play', () => {
+      setPlayUi(true)
+      $('statusText').textContent = '자동 듣기 중 · 백그라운드 재생 가능'
+      try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing' } catch (_) {}
+    })
+    audio.addEventListener('pause', () => {
+      setPlayUi(false)
+      if (currentTrackKey && audio.currentTime > 0 && audio.currentTime < (audio.duration || Infinity)) $('statusText').textContent = '일시정지 · 다시 누르면 이어서 재생'
+      try { if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused' } catch (_) {}
+      saveState()
+    })
+    audio.addEventListener('timeupdate', () => {
+      updateSentenceFromTime()
+      updateMediaPosition()
+      saveState()
+    })
+
+    window.addEventListener('beforeunload', () => {
+      saveState()
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
     })
   }
 
-  function invalidateTrack(){
-    const was=!audio.paused
-    audio.pause(); timeline=[]; currentTrackKey=''
-    if(objectUrl){URL.revokeObjectURL(objectUrl);objectUrl=''}
-    audio.removeAttribute('src'); audio.load(); saveState()
-    setTimeout(()=>ensureTrack(was),80)
+  async function init() {
+    $('statusText').textContent = '문장 데이터 불러오는 중...'
+    try {
+      data = await loadDataset()
+      sectionIndex = Math.min(39, Math.max(0, Number(state.sectionIndex || 0)))
+      sentenceIndex = Math.min(9, Math.max(0, Number(state.sentenceIndex || 0)))
+
+      $('sectionSelect').innerHTML = data.sections.map((section, index) => `<option value="${index}">${section.section}. ${section.title}</option>`).join('')
+      $('listenMode').value = settings.listenMode
+      $('endMode').value = settings.endMode
+      $('enRate').value = String(settings.enRate)
+      $('koRate').value = String(settings.koRate)
+      $('enRateText').textContent = fmt(settings.enRate)
+      $('koRateText').textContent = fmt(settings.koRate)
+      $('showKorean').checked = settings.showKorean
+
+      wire()
+      renderSection()
+      $('statusText').textContent = '재생을 누르면 백그라운드용 오디오를 준비합니다.'
+      configureMediaSession()
+    } catch (error) {
+      console.error(error)
+      $('statusText').textContent = '문장 데이터를 불러오지 못했습니다. 다시 접속해 주세요.'
+      $('englishText').textContent = '데이터를 불러오지 못했습니다.'
+      $('koreanText').textContent = '네트워크 연결 후 다시 시도해 주세요.'
+    }
   }
 
-  async function init(){
-    const res=await fetch(DATA_URL,{cache:'force-cache'})
-    if(!res.ok) throw new Error('data load failed')
-    data=await res.json()
-    if(data.total!==400||data.sections.length!==40) throw new Error('data validation failed')
-    sectionIndex=Math.max(0,Math.min(39,Number(state.sectionIndex||0)))
-    sentenceIndex=Math.max(0,Math.min(9,Number(state.sentenceIndex||0)))
-    data.sections.forEach((s,i)=>{
-      const o=document.createElement('option');o.value=String(i);o.textContent=`${s.section}. ${s.title}`;$('sectionSelect').appendChild(o)
-    })
-    $('listenMode').value=settings.listenMode;$('endMode').value=settings.endMode
-    $('enRate').value=String(settings.enRate);$('koRate').value=String(settings.koRate)
-    $('enRateText').textContent=fmt(settings.enRate);$('koRateText').textContent=fmt(settings.koRate)
-    $('showKorean').checked=settings.showKorean
-    wire();renderSection();setPlayUi(false)
-    $('statusText').textContent='오디오 미리 준비 중'
-    setTimeout(()=>ensureTrack(false),250)
-  }
-  init().catch(e=>{console.error(e);$('statusText').textContent='문장 데이터를 불러오지 못했습니다.'})
+  init()
 })()
