@@ -1,4 +1,4 @@
-(() => {
+(async () => {
   const C = window.EbookCommon
   if (!C) return
 
@@ -9,117 +9,105 @@
     return
   }
 
+  const loadScript = (src, ready) => new Promise((resolve, reject) => {
+    if (ready()) return resolve()
+    const existing = document.querySelector(`script[data-layer-src="${src}"]`)
+    if (existing) {
+      existing.addEventListener('load', resolve, { once: true })
+      existing.addEventListener('error', reject, { once: true })
+      return
+    }
+    const script = document.createElement('script')
+    script.src = src
+    script.dataset.layerSrc = src
+    script.onload = resolve
+    script.onerror = reject
+    document.head.appendChild(script)
+  })
+
+  await loadScript('https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js', () => !!window.Vue)
+  await loadScript('/components/ebook/chapter-selector.js?v=2', () => !!window.EbookComponents?.ChapterSelector)
+  await loadScript('/components/ebook/prep-view.js?v=2', () => !!window.EbookComponents?.PrepView)
+
+  const { createApp, ref, computed, reactive } = window.Vue
   const state = C.loadState()
-  let book = null
-  let prepChapterNo = 1
+  const result = await C.loadBook(bookId)
+  const book = result.book
+  C.renderBookMeta(book)
+
+  const initialBookState = C.getBookState(state, book.id)
+  const chapter = ref(C.clampChapter(book, initialBookState.prepChapterNo || initialBookState.chapterNo || 1))
+  const learnedVocab = ref([])
+  const learnedGrammar = ref([])
+  const examplesByChapter = reactive({})
   let examplesToken = 0
-  const prepExamples = new Map()
 
   function bookState() {
     return C.getBookState(state, book.id)
   }
 
-  function currentStudy() {
-    return book.studyByChapter.find(x => x.chapter === prepChapterNo) || book.studyByChapter[0]
+  function patch(patchValue) {
+    return C.patchBookState(state, book.id, patchValue)
   }
 
-  function patch(patch) {
-    return C.patchBookState(state, book.id, patch)
-  }
-
-  function updateProgress() {
-    const study = currentStudy()
+  function syncLearned() {
     const bs = bookState()
-    const learnedVocab = new Set((bs.learnedVocabByChapter || {})[prepChapterNo] || [])
-    const learnedGrammar = new Set((bs.learnedGrammarByChapter || {})[prepChapterNo] || [])
-    const total = study.vocabulary.length + study.grammar.length
-    const percent = total ? Math.round((learnedVocab.size + learnedGrammar.size) / total * 100) : 0
-    C.$('prepChapterProgress').textContent = `${percent}%`
+    learnedVocab.value = [...((bs.learnedVocabByChapter || {})[chapter.value] || [])]
+    learnedGrammar.value = [...((bs.learnedGrammarByChapter || {})[chapter.value] || [])]
   }
 
-  function renderStudy() {
-    const study = currentStudy()
-    const bs = bookState()
-    const learnedVocab = new Set((bs.learnedVocabByChapter || {})[prepChapterNo] || [])
-    const learnedGrammar = new Set((bs.learnedGrammarByChapter || {})[prepChapterNo] || [])
-    const examples = prepExamples.get(prepChapterNo) || {}
+  const study = computed(() => book.studyByChapter.find(x => x.chapter === chapter.value) || book.studyByChapter[0])
+  const examples = computed(() => examplesByChapter[chapter.value] || {})
+  const progress = computed(() => {
+    const total = study.value.vocabulary.length + study.value.grammar.length
+    return total ? Math.round((learnedVocab.value.length + learnedGrammar.value.length) / total * 100) : 0
+  })
 
-    C.$('prepChapterSelect').value = String(prepChapterNo)
-    C.$('vocabCount').textContent = `${study.vocabulary.length}개`
-    C.$('grammarCount').textContent = `${study.grammar.length}개`
-
-    C.$('vocabList').innerHTML = study.vocabulary.map((v, i) => `
-      <article class="vocab-item ${learnedVocab.has(i) ? 'learned' : ''}" data-vocab-item="${i}">
-        <div class="vocab-top">
-          <button class="vocab-word-btn" type="button" data-speak-word="${i}">
-            <b>${C.escapeHtml(v.word)}</b>
-            <p class="meaning">${C.escapeHtml(v.meaning)}</p>
-          </button>
-          <button class="vocab-done" type="button" data-vocab-done="${i}">${learnedVocab.has(i) ? '완료' : '체크'}</button>
-        </div>
-        ${examples[i] ? `<p class="source-example">${C.escapeHtml(examples[i])}</p>` : ''}
-      </article>`).join('')
-
-    C.$('grammarList').innerHTML = study.grammar.map((g, i) => `
-      <article class="grammar-item">
-        <h3>${C.escapeHtml(g.title)}</h3>
-        <span class="pattern">${C.escapeHtml(g.pattern)}</span>
-        <p>${C.escapeHtml(g.meaning)}</p>
-        <label class="grammar-check">
-          <input type="checkbox" data-grammar="${i}" ${learnedGrammar.has(i) ? 'checked' : ''}>
-          이해했어요
-        </label>
-      </article>`).join('')
-
-    updateProgress()
-    loadExamples(prepChapterNo)
-  }
-
-  async function loadExamples(chapter) {
-    if (prepExamples.has(chapter)) return
+  async function loadExamples(chapterNo) {
+    if (examplesByChapter[chapterNo]) return
     const token = ++examplesToken
     try {
-      const data = await C.getChapter(book.id, chapter)
-      if (token !== examplesToken || chapter !== prepChapterNo) return
+      const data = await C.getChapter(book.id, chapterNo)
+      if (token !== examplesToken || chapterNo !== chapter.value) return
       const allLines = C.makeLines(data.paragraphs)
-      const study = book.studyByChapter.find(x => x.chapter === chapter)
+      const current = book.studyByChapter.find(x => x.chapter === chapterNo)
       const found = {}
-      study.vocabulary.forEach((v, i) => {
+      current.vocabulary.forEach((v, i) => {
         const needle = v.word.toLowerCase().replace(/[’']/g, '')
         const line = allLines.find(x => x.en.toLowerCase().replace(/[’']/g, '').includes(needle))
         if (line) found[i] = line.en
       })
-      prepExamples.set(chapter, found)
-      if (chapter === prepChapterNo) renderStudy()
+      examplesByChapter[chapterNo] = found
     } catch (_) {}
   }
 
   function setChapter(next) {
-    prepChapterNo = C.clampChapter(book, next)
+    chapter.value = C.clampChapter(book, next)
     examplesToken++
-    patch({ prepChapterNo, activeTab: 'prep' })
-    renderStudy()
+    patch({ prepChapterNo: chapter.value, activeTab: 'prep' })
+    syncLearned()
+    loadExamples(chapter.value)
     scrollTo({ top: Math.max(0, document.querySelector('.book-tabs').offsetTop - 90), behavior: 'smooth' })
   }
 
   function toggleVocab(index) {
     const bs = bookState()
     const map = { ...(bs.learnedVocabByChapter || {}) }
-    const set = new Set(map[prepChapterNo] || [])
+    const set = new Set(map[chapter.value] || [])
     set.has(index) ? set.delete(index) : set.add(index)
-    map[prepChapterNo] = [...set]
-    patch({ learnedVocabByChapter: map, prepChapterNo, activeTab: 'prep' })
-    renderStudy()
+    map[chapter.value] = [...set]
+    patch({ learnedVocabByChapter: map, prepChapterNo: chapter.value, activeTab: 'prep' })
+    syncLearned()
   }
 
   function toggleGrammar(index, checked) {
     const bs = bookState()
     const map = { ...(bs.learnedGrammarByChapter || {}) }
-    const set = new Set(map[prepChapterNo] || [])
+    const set = new Set(map[chapter.value] || [])
     checked ? set.add(index) : set.delete(index)
-    map[prepChapterNo] = [...set]
-    patch({ learnedGrammarByChapter: map, prepChapterNo, activeTab: 'prep' })
-    updateProgress()
+    map[chapter.value] = [...set]
+    patch({ learnedGrammarByChapter: map, prepChapterNo: chapter.value, activeTab: 'prep' })
+    syncLearned()
   }
 
   function speak(text) {
@@ -132,55 +120,42 @@
   }
 
   function goReader() {
-    patch({ activeTab: 'reader', chapterNo: prepChapterNo })
+    patch({ activeTab: 'reader', chapterNo: chapter.value })
     location.href = C.pageUrl('reader', book.id)
   }
 
-  function wire() {
-    C.$('prepTab').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
-    C.$('readTab').addEventListener('click', goReader)
-    C.$('finishPrepBtn').addEventListener('click', goReader)
+  C.$('prepTab').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  C.$('readTab').addEventListener('click', goReader)
+  window.addEventListener('pagehide', () => { try { speechSynthesis.cancel() } catch (_) {} })
 
-    C.$('prepChapterSelect').addEventListener('change', event => setChapter(Number(event.target.value)))
-    C.$('prepPrevChapter').addEventListener('click', () => setChapter(prepChapterNo - 1))
-    C.$('prepNextChapter').addEventListener('click', () => setChapter(prepChapterNo + 1))
+  syncLearned()
+  patch({ prepChapterNo: chapter.value, activeTab: 'prep' })
+  loadExamples(chapter.value)
 
-    C.$('vocabList').addEventListener('click', event => {
-      const done = event.target.closest('[data-vocab-done]')
-      if (done) {
-        toggleVocab(Number(done.dataset.vocabDone))
-        return
-      }
-      const word = event.target.closest('[data-speak-word]')
-      if (word) speak(currentStudy().vocabulary[Number(word.dataset.speakWord)].word)
-    })
-
-    C.$('grammarList').addEventListener('change', event => {
-      const input = event.target.closest('[data-grammar]')
-      if (input) toggleGrammar(Number(input.dataset.grammar), input.checked)
-    })
-
-    window.addEventListener('pagehide', () => {
-      try { speechSynthesis.cancel() } catch (_) {}
-    })
-  }
-
-  async function init() {
-    const result = await C.loadBook(bookId)
-    book = result.book
-    C.renderBookMeta(book)
-
-    const bs = bookState()
-    prepChapterNo = C.clampChapter(book, bs.prepChapterNo || bs.chapterNo || 1)
-    patch({ prepChapterNo, activeTab: 'prep' })
-
-    C.fillChapterSelect(C.$('prepChapterSelect'), book, prepChapterNo)
-    wire()
-    renderStudy()
-  }
-
-  init().catch(error => {
-    console.error(error)
-    C.showFatal()
-  })
-})()
+  createApp({
+    name: 'EbookPrepPage',
+    components: { PrepView: window.EbookComponents.PrepView },
+    setup() {
+      return { book, chapter, study, learnedVocab, learnedGrammar, examples, progress, setChapter, toggleVocab, toggleGrammar, speak, goReader }
+    },
+    template: `
+      <prep-view
+        :book="book"
+        :chapter="chapter"
+        :study="study"
+        :learned-vocab="learnedVocab"
+        :learned-grammar="learnedGrammar"
+        :examples="examples"
+        :progress="progress"
+        @change-chapter="setChapter"
+        @toggle-vocab="toggleVocab"
+        @toggle-grammar="toggleGrammar"
+        @speak="speak"
+        @go-reader="goReader"
+      />
+    `
+  }).mount('#prepPanel')
+})().catch(error => {
+  console.error(error)
+  window.EbookCommon?.showFatal?.()
+})
