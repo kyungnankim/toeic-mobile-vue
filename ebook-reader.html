@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#312e81" />
   <meta name="description" content="영어 원서 책 읽기" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/ebook.css?v=2" />
+  <link rel="stylesheet" href="/ebook.css?v=3" />
   <link rel="preload" href="/data/gatsby-ko-ch1-1.json?v=4" as="fetch" crossorigin="anonymous" />
   <link rel="preload" href="/data/gatsby-ko-ch1-2.json?v=4" as="fetch" crossorigin="anonymous" />
   <link rel="preload" href="/data/gatsby-ko-ch1-3.json?v=4" as="fetch" crossorigin="anonymous" />
@@ -14,7 +14,7 @@
   <link rel="preload" href="/data/gatsby-ko-ch1-5.json?v=4" as="fetch" crossorigin="anonymous" />
   <title>책 읽기 | TOEIC EBOOK</title>
 </head>
-<body>
+<body data-ebook-view="reader">
   <div class="ebook-shell">
     <header class="ebook-topbar">
       <a href="/" class="back-btn" aria-label="홈으로"><svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></a>
@@ -22,11 +22,7 @@
       <button id="topAudioStop" class="top-action" type="button" hidden>정지</button>
     </header>
 
-    <main id="libraryView" class="library-view" hidden>
-      <span id="bookCount"></span><div id="bookList"></div>
-    </main>
-
-    <main id="bookView" class="book-view">
+    <main class="book-view">
       <section class="book-head">
         <div class="mini-cover"><span>THE GREAT</span><b>GATSBY</b><small>F. SCOTT FITZGERALD</small></div>
         <div class="book-info">
@@ -41,15 +37,7 @@
         <button id="readTab" class="active" type="button" aria-current="page">책 읽기</button>
       </nav>
 
-      <section id="prepPanel" hidden style="display:none!important" aria-hidden="true">
-        <select id="prepChapterSelect"></select>
-        <span id="prepChapterProgress"></span><span id="vocabCount"></span><span id="grammarCount"></span>
-        <button id="prepPrevChapter" type="button"></button><button id="prepNextChapter" type="button"></button>
-        <div id="vocabList"></div><div id="grammarList"></div>
-        <button id="finishPrepBtn" type="button"></button>
-      </section>
-
-      <section id="readerPanel" class="reader-panel">
+      <section id="readerPanel" class="reader-panel" aria-label="책 읽기">
         <section class="reader-top card compact-card">
           <div class="reading-mode" role="tablist" aria-label="읽기 방식">
             <button id="lineModeBtn" class="active" type="button">한 줄씩 읽기</button>
@@ -91,8 +79,8 @@
     </main>
   </div>
 
-  <script src="/ebook-page-router.js?v=1"></script>
+  <script src="/ebook-common.js?v=1"></script>
   <script src="/ebook-ko-bootstrap.js?v=4"></script>
-  <script src="/ebook.js?v=3"></script>
+  <script src="/ebook-reader.js?v=1"></script>
 </body>
 </html>
