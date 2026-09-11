@@ -1,19 +1,33 @@
 (() => {
-  function mount() {
+  let app = null
+  let mountPoint = null
+
+  function ensureMounted() {
     if (!window.Vue || !window.ToeicComponents?.FeatureCard) return false
-    if (document.getElementById('homeFeatureStackMount')) return true
+
+    if (mountPoint && !document.documentElement.contains(mountPoint)) {
+      try { app?.unmount() } catch (_) {}
+      app = null
+      mountPoint = null
+    }
+
+    const existing = document.getElementById('homeFeatureStackMount')
+    if (existing) {
+      mountPoint = existing
+      return true
+    }
 
     const home = document.querySelector('.home-view')
     const anchor = home?.querySelector('.lc-feature-card')
     if (!home || !anchor) return false
 
-    const mountPoint = document.createElement('div')
+    mountPoint = document.createElement('div')
     mountPoint.id = 'homeFeatureStackMount'
     mountPoint.className = 'home-feature-stack'
     anchor.insertAdjacentElement('afterend', mountPoint)
 
     const { createApp } = window.Vue
-    createApp({
+    app = createApp({
       name: 'HomeFeatureStack',
       components: { FeatureCard: window.ToeicComponents.FeatureCard },
       template: `
@@ -34,14 +48,13 @@
           />
         </div>
       `
-    }).mount(mountPoint)
+    })
+    app.mount(mountPoint)
     return true
   }
 
-  if (mount()) return
-  const observer = new MutationObserver(() => {
-    if (mount()) observer.disconnect()
-  })
+  const observer = new MutationObserver(ensureMounted)
   observer.observe(document.documentElement, { childList: true, subtree: true })
-  document.addEventListener('DOMContentLoaded', mount, { once: true })
+  document.addEventListener('DOMContentLoaded', ensureMounted, { once: true })
+  ensureMounted()
 })()
