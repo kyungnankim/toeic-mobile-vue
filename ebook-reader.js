@@ -1,4 +1,4 @@
-(() => {
+(async () => {
   const C = window.EbookCommon
   if (!C) return
 
@@ -9,26 +9,48 @@
     return
   }
 
+  const loadScript = (src, ready) => new Promise((resolve, reject) => {
+    if (ready()) return resolve()
+    const existing = document.querySelector(`script[data-layer-src="${src}"]`)
+    if (existing) {
+      existing.addEventListener('load', resolve, { once: true })
+      existing.addEventListener('error', reject, { once: true })
+      return
+    }
+    const script = document.createElement('script')
+    script.src = src
+    script.dataset.layerSrc = src
+    script.onload = resolve
+    script.onerror = reject
+    document.head.appendChild(script)
+  })
+
+  await loadScript('https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js', () => !!window.Vue)
+  await loadScript('/components/ebook/chapter-selector.js?v=2', () => !!window.EbookComponents?.ChapterSelector)
+  await loadScript('/components/ebook/reader-view.js?v=2', () => !!window.EbookComponents?.ReaderView)
+
+  const { createApp, ref } = window.Vue
   const TRANSLATION_PREFIX = 'toeic-ebook-ko:'
   const state = C.loadState()
-  let book = null
-  let chapterNo = 1
-  let readMode = 'line'
-  let showKorean = true
-  let visibleCount = C.PAGE_SIZE
-  let chapterData = null
-  let lines = []
+  const result = await C.loadBook(bookId)
+  const book = result.book
+  C.renderBookMeta(book)
+
+  const initialBookState = C.getBookState(state, book.id)
+  const chapter = ref(C.clampChapter(book, initialBookState.chapterNo || initialBookState.prepChapterNo || 1))
+  const readMode = ref(initialBookState.readMode === 'full' ? 'full' : 'line')
+  const showKorean = ref(state.showKorean !== false)
+  const visibleCount = ref(Math.max(C.PAGE_SIZE, Number((initialBookState.visibleByChapter || {})[chapter.value] || C.PAGE_SIZE)))
+  const chapterData = ref(null)
+  const lines = ref([])
+  const loading = ref(false)
+  const status = ref('')
+  const audioPlaying = ref(false)
   let loadToken = 0
   let audioToken = 0
-  let chapterAudioPlaying = false
 
-  function bookState() {
-    return C.getBookState(state, book.id)
-  }
-
-  function patch(patch) {
-    return C.patchBookState(state, book.id, patch)
-  }
+  function bookState() { return C.getBookState(state, book.id) }
+  function patch(patchValue) { return C.patchBookState(state, book.id, patchValue) }
 
   function hashText(s) {
     let h = 2166136261
@@ -50,160 +72,106 @@
   async function hydrateManualTranslations() {
     if (!window.__ebookManualKo) return
     try {
-      await window.__ebookManualKo.load(book.id, chapterNo)
-      for (const line of lines) {
-        if (!line.ko) line.ko = window.__ebookManualKo.lookup(book.id, chapterNo, line.en) || ''
-      }
+      await window.__ebookManualKo.load(book.id, chapter.value)
+      lines.value = lines.value.map(line => ({
+        ...line,
+        ko: line.ko || window.__ebookManualKo.lookup(book.id, chapter.value, line.en) || ''
+      }))
     } catch (_) {}
   }
 
-  function renderLines() {
-    const current = lines.slice(0, visibleCount)
-    C.$('readerLines').innerHTML = current.map(line => `
-      <article class="line-card" data-line="${line.id}">
-        <div class="line-top">
-          <span class="line-no">${String(line.id).padStart(3, '0')}</span>
-          <button class="line-speak" type="button" data-line-speak="${line.id}" aria-label="문장 듣기">
-            <svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
-          </button>
-        </div>
-        <p class="line-en">${C.escapeHtml(line.en)}</p>
-        <p class="line-ko ${line.ko ? '' : 'loading'}">${line.ko ? C.escapeHtml(line.ko) : ''}</p>
-      </article>`).join('')
-
-    C.$('loadMoreBtn').hidden = visibleCount >= lines.length
-    document.body.classList.toggle('hide-korean', !showKorean)
-    C.$('koreanToggle').querySelector('span').textContent = showKorean ? '한국어 숨기기' : '한국어 보이기'
-
-    if (showKorean) translateVisible()
-  }
-
-  function renderFullEnglish() {
-    C.$('fullEnglishText').innerHTML = (chapterData?.paragraphs || []).map(p => `<p>${C.escapeHtml(p)}</p>`).join('')
-  }
-
   async function translateLine(line, token) {
-    if (line.ko || token !== loadToken || !showKorean) return
+    if (line.ko || token !== loadToken || !showKorean.value) return
     try {
-      const manual = window.__ebookManualKo?.lookup(book.id, chapterNo, line.en) || ''
-      if (manual) {
-        line.ko = manual
-      } else {
+      const manual = window.__ebookManualKo?.lookup(book.id, chapter.value, line.en) || ''
+      let translated = manual
+      if (!translated) {
         const res = await fetch(`/api/translate?text=${encodeURIComponent(line.en)}`, { cache: 'force-cache' })
         if (!res.ok || token !== loadToken) return
         const json = await res.json()
-        line.ko = String(json.translation || json.translatedText || json.text || '').trim()
+        translated = String(json.translation || json.translatedText || json.text || '').trim()
       }
-      if (!line.ko) return
-      saveTranslation(line.en, line.ko)
-      const el = document.querySelector(`[data-line="${line.id}"] .line-ko`)
-      if (el) {
-        el.textContent = line.ko
-        el.classList.remove('loading')
-      }
-    } catch (_) {
-      const el = document.querySelector(`[data-line="${line.id}"] .line-ko`)
-      if (el) el.classList.remove('loading')
-    }
+      if (!translated || token !== loadToken) return
+      line.ko = translated
+      saveTranslation(line.en, translated)
+    } catch (_) {}
   }
 
   async function translateVisible() {
+    if (!showKorean.value) return
     const token = loadToken
-    const targets = lines.slice(0, visibleCount).filter(line => !line.ko)
-    const workers = Array.from({ length: Math.min(4, targets.length) }, async (_, workerIndex) => {
-      for (let i = workerIndex; i < targets.length; i += 4) {
-        if (token !== loadToken || !showKorean) return
+    const targets = lines.value.slice(0, visibleCount.value).filter(line => !line.ko)
+    const workerCount = Math.min(4, targets.length)
+    await Promise.all(Array.from({ length: workerCount }, async (_, workerIndex) => {
+      for (let i = workerIndex; i < targets.length; i += workerCount) {
+        if (token !== loadToken || !showKorean.value) return
         await translateLine(targets[i], token)
       }
-    })
-    await Promise.all(workers)
-  }
-
-  function applyReadMode() {
-    readMode = readMode === 'full' ? 'full' : 'line'
-    C.$('lineModeBtn').classList.toggle('active', readMode === 'line')
-    C.$('fullModeBtn').classList.toggle('active', readMode === 'full')
-    C.$('lineReaderView').hidden = readMode !== 'line'
-    C.$('fullReaderView').hidden = readMode !== 'full'
-    C.$('koreanToggle').hidden = readMode !== 'line'
-    patch({ activeTab: 'reader', chapterNo, readMode })
-  }
-
-  function setReadMode(mode) {
-    readMode = mode === 'full' ? 'full' : 'line'
-    applyReadMode()
-    if (readMode === 'line' && showKorean) translateVisible()
-  }
-
-  async function loadChapter() {
-    const token = ++loadToken
-    stopChapterAudio()
-    C.$('readerPanel').classList.add('loading')
-    C.$('readerStatus').textContent = '본문 불러오는 중...'
-
-    try {
-      chapterData = await C.getChapter(book.id, chapterNo)
-      if (token !== loadToken) return
-
-      lines = C.makeLines(chapterData.paragraphs).map(line => ({
-        ...line,
-        ko: cachedTranslation(line.en)
-      }))
-
-      await hydrateManualTranslations()
-      if (token !== loadToken) return
-
-      const savedVisible = Number((bookState().visibleByChapter || {})[chapterNo] || C.PAGE_SIZE)
-      visibleCount = Math.min(lines.length, Math.max(C.PAGE_SIZE, savedVisible))
-
-      C.$('chapterSelect').value = String(chapterNo)
-      C.$('chapterLabel').textContent = `CHAPTER ${chapterData.roman || C.roman(chapterNo)}`
-      C.$('chapterTitleDisplay').textContent = book.title
-      C.$('readerCount').textContent = `${lines.length}문장`
-
-      renderLines()
-      renderFullEnglish()
-      applyReadMode()
-      C.$('readerStatus').textContent = ''
-    } catch (error) {
-      console.error(error)
-      C.$('readerStatus').textContent = '본문을 불러오지 못했습니다.'
-    } finally {
-      if (token === loadToken) C.$('readerPanel').classList.remove('loading')
-    }
+    }))
   }
 
   function saveReaderState(extra = {}) {
     const bs = bookState()
     patch({
       activeTab: 'reader',
-      chapterNo,
-      readMode,
-      visibleByChapter: {
-        ...(bs.visibleByChapter || {}),
-        [chapterNo]: visibleCount
-      },
+      chapterNo: chapter.value,
+      readMode: readMode.value,
+      visibleByChapter: { ...(bs.visibleByChapter || {}), [chapter.value]: visibleCount.value },
       ...extra
     })
-    state.showKorean = showKorean
+    state.showKorean = showKorean.value
     C.saveState(state)
   }
 
+  async function loadChapter() {
+    const token = ++loadToken
+    stopChapterAudio()
+    loading.value = true
+    status.value = '본문 불러오는 중...'
+    try {
+      const data = await C.getChapter(book.id, chapter.value)
+      if (token !== loadToken) return
+      chapterData.value = data
+      lines.value = C.makeLines(data.paragraphs).map(line => ({ ...line, ko: cachedTranslation(line.en) }))
+      await hydrateManualTranslations()
+      if (token !== loadToken) return
+      const savedVisible = Number((bookState().visibleByChapter || {})[chapter.value] || C.PAGE_SIZE)
+      visibleCount.value = Math.min(lines.value.length, Math.max(C.PAGE_SIZE, savedVisible))
+      status.value = ''
+      if (showKorean.value) translateVisible()
+    } catch (error) {
+      console.error(error)
+      status.value = '본문을 불러오지 못했습니다.'
+    } finally {
+      if (token === loadToken) loading.value = false
+    }
+  }
+
   function setChapter(next) {
-    chapterNo = C.clampChapter(book, next)
-    visibleCount = C.PAGE_SIZE
+    chapter.value = C.clampChapter(book, next)
+    visibleCount.value = C.PAGE_SIZE
     saveReaderState()
     loadChapter()
     scrollTo({ top: Math.max(0, document.querySelector('.book-tabs').offsetTop - 90), behavior: 'smooth' })
   }
 
+  function setReadMode(mode) {
+    readMode.value = mode === 'full' ? 'full' : 'line'
+    saveReaderState()
+    if (readMode.value === 'line' && showKorean.value) translateVisible()
+  }
+
   function toggleKorean() {
-    showKorean = !showKorean
-    document.body.classList.toggle('hide-korean', !showKorean)
-    C.$('koreanToggle').querySelector('span').textContent = showKorean ? '한국어 숨기기' : '한국어 보이기'
-    state.showKorean = showKorean
+    showKorean.value = !showKorean.value
+    state.showKorean = showKorean.value
     C.saveState(state)
-    if (showKorean) translateVisible()
+    if (showKorean.value) translateVisible()
+  }
+
+  function loadMore() {
+    visibleCount.value = Math.min(lines.value.length, visibleCount.value + C.PAGE_SIZE)
+    saveReaderState()
+    if (showKorean.value) translateVisible()
   }
 
   function speakSingle(text) {
@@ -215,102 +183,82 @@
     speechSynthesis.speak(utterance)
   }
 
-  function toggleChapterAudio() {
-    if (chapterAudioPlaying) {
-      stopChapterAudio()
-      return
-    }
-    if (!lines.length || !('speechSynthesis' in window)) return
+  function setAudioUi(on) {
+    audioPlaying.value = on
+    C.$('topAudioStop').hidden = !on
+  }
 
-    chapterAudioPlaying = true
-    const token = ++audioToken
+  function stopChapterAudio() {
+    audioToken++
+    try { speechSynthesis.cancel() } catch (_) {}
+    setAudioUi(false)
+  }
+
+  function toggleChapterAudio() {
+    if (audioPlaying.value) return stopChapterAudio()
+    if (!lines.value.length || !('speechSynthesis' in window)) return
     setAudioUi(true)
+    const token = ++audioToken
     let index = 0
+    speechSynthesis.cancel()
 
     const speakNext = () => {
-      if (!chapterAudioPlaying || token !== audioToken || index >= lines.length) {
-        stopChapterAudio()
-        return
-      }
-      const utterance = new SpeechSynthesisUtterance(lines[index].en)
+      if (!audioPlaying.value || token !== audioToken || index >= lines.value.length) return stopChapterAudio()
+      const utterance = new SpeechSynthesisUtterance(lines.value[index].en)
       utterance.lang = 'en-US'
       utterance.rate = .92
       utterance.onend = () => { index++; speakNext() }
       utterance.onerror = () => { index++; speakNext() }
       speechSynthesis.speak(utterance)
     }
-
-    speechSynthesis.cancel()
     setTimeout(speakNext, 80)
   }
 
-  function stopChapterAudio() {
-    audioToken++
-    chapterAudioPlaying = false
-    try { speechSynthesis.cancel() } catch (_) {}
-    setAudioUi(false)
-  }
-
-  function setAudioUi(on) {
-    C.$('chapterAudioBtn').classList.toggle('playing', on)
-    C.$('chapterAudioBtn').querySelector('span').textContent = on ? '듣기 정지' : '챕터 듣기'
-    C.$('topAudioStop').hidden = !on
-  }
-
   function goPrep() {
-    saveReaderState({ activeTab: 'prep', prepChapterNo: chapterNo })
+    saveReaderState({ activeTab: 'prep', prepChapterNo: chapter.value })
     location.href = C.pageUrl('prep', book.id)
   }
 
-  function wire() {
-    C.$('prepTab').addEventListener('click', goPrep)
-    C.$('readTab').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  C.$('prepTab').addEventListener('click', goPrep)
+  C.$('readTab').addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }))
+  C.$('topAudioStop').addEventListener('click', stopChapterAudio)
+  window.addEventListener('pagehide', stopChapterAudio)
 
-    C.$('chapterSelect').addEventListener('change', event => setChapter(Number(event.target.value)))
-    C.$('readPrevChapter').addEventListener('click', () => setChapter(chapterNo - 1))
-    C.$('readNextChapter').addEventListener('click', () => setChapter(chapterNo + 1))
+  patch({ activeTab: 'reader', chapterNo: chapter.value })
 
-    C.$('lineModeBtn').addEventListener('click', () => setReadMode('line'))
-    C.$('fullModeBtn').addEventListener('click', () => setReadMode('full'))
-    C.$('koreanToggle').addEventListener('click', toggleKorean)
-    C.$('chapterAudioBtn').addEventListener('click', toggleChapterAudio)
-    C.$('topAudioStop').addEventListener('click', stopChapterAudio)
+  createApp({
+    name: 'EbookReaderPage',
+    components: { ReaderView: window.EbookComponents.ReaderView },
+    setup() {
+      return {
+        book, chapter, chapterData, lines, visibleCount, readMode, showKorean, audioPlaying, loading, status,
+        setChapter, setReadMode, toggleKorean, toggleChapterAudio, loadMore, speakSingle
+      }
+    },
+    template: `
+      <reader-view
+        :book="book"
+        :chapter="chapter"
+        :chapter-data="chapterData"
+        :lines="lines"
+        :visible-count="visibleCount"
+        :read-mode="readMode"
+        :show-korean="showKorean"
+        :audio-playing="audioPlaying"
+        :loading="loading"
+        :status="status"
+        @change-chapter="setChapter"
+        @set-mode="setReadMode"
+        @toggle-korean="toggleKorean"
+        @toggle-audio="toggleChapterAudio"
+        @load-more="loadMore"
+        @speak="speakSingle"
+      />
+    `
+  }).mount('#readerPanel')
 
-    C.$('loadMoreBtn').addEventListener('click', () => {
-      visibleCount = Math.min(lines.length, visibleCount + C.PAGE_SIZE)
-      saveReaderState()
-      renderLines()
-    })
-
-    C.$('readerLines').addEventListener('click', event => {
-      const button = event.target.closest('[data-line-speak]')
-      if (!button) return
-      const line = lines.find(item => item.id === Number(button.dataset.lineSpeak))
-      if (line) speakSingle(line.en)
-    })
-
-    window.addEventListener('pagehide', stopChapterAudio)
-  }
-
-  async function init() {
-    const result = await C.loadBook(bookId)
-    book = result.book
-    C.renderBookMeta(book)
-
-    const bs = bookState()
-    chapterNo = C.clampChapter(book, bs.chapterNo || bs.prepChapterNo || 1)
-    readMode = bs.readMode === 'full' ? 'full' : 'line'
-    showKorean = state.showKorean !== false
-    visibleCount = Math.max(C.PAGE_SIZE, Number((bs.visibleByChapter || {})[chapterNo] || C.PAGE_SIZE))
-
-    patch({ activeTab: 'reader', chapterNo })
-    C.fillChapterSelect(C.$('chapterSelect'), book, chapterNo)
-    wire()
-    await loadChapter()
-  }
-
-  init().catch(error => {
-    console.error(error)
-    C.showFatal()
-  })
-})()
+  await loadChapter()
+})().catch(error => {
+  console.error(error)
+  window.EbookCommon?.showFatal?.()
+})
