@@ -19,7 +19,7 @@
       hasGrammar(index) { return this.learnedGrammar.includes(index) }
     },
     template: `
-      <div class="prep-panel-component">
+      <div class="prep-panel-component" style="display:grid;gap:18px">
         <section class="chapter-control card compact-card">
           <div class="control-head"><strong>읽기 전 학습</strong><span>{{ progress }}%</span></div>
           <chapter-selector prefix="prep" :chapter="chapter" :chapters="book.chapters" @change="$emit('change-chapter', $event)" />
