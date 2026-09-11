@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#312e81" />
   <meta name="description" content="TOEIC LC 400문장 구간별 자동 듣기" />
   <link rel="icon" href="/icon.svg" type="image/svg+xml" />
-  <link rel="stylesheet" href="/sentences.css?v=22" />
+  <link rel="stylesheet" href="/sentences.css?v=23" />
   <title>TOEIC LC 400문장</title>
 </head>
 <body>
@@ -32,7 +32,7 @@
         </article>
         <div class="main-controls"><button id="backSentence" class="round-btn" aria-label="이전 문장"><svg viewBox="0 0 24 24"><path d="M19 20 9 12l10-8v16Z"/><path d="M5 4v16"/></svg></button><button id="playBtn" class="play-btn" aria-label="자동 듣기 시작"><svg id="playIcon" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></svg><svg id="pauseIcon" viewBox="0 0 24 24" hidden><path d="M8 5v14M16 5v14"/></svg></button><button id="nextSentence" class="round-btn" aria-label="다음 문장"><svg viewBox="0 0 24 24"><path d="m5 4 10 8-10 8V4Z"/><path d="M19 4v16"/></svg></button></div>
         <button id="prepareBtn" class="prepare-btn" hidden>이 구간 오디오 준비하기</button>
-        <div class="build-progress" id="buildWrap" hidden><div><span>오디오 준비 중</span><b id="buildPercent">0%</b></div><div class="build-track"><i id="buildBar"></i></div></div>
+        <div class="build-progress" id="buildWrap" hidden><div><span>백그라운드 오디오 준비 중</span><b id="buildPercent">0%</b></div><div class="build-track"><i id="buildBar"></i></div></div>
         <div class="settings-grid">
           <label><span>재생 내용</span><select id="listenMode"><option value="both">영어 + 한국어</option><option value="en">영어만</option></select></label>
           <label><span>구간 끝나면</span><select id="endMode"><option value="next">다음 구간</option><option value="repeat">현재 구간 반복</option></select></label>
@@ -42,10 +42,10 @@
         <label class="meaning-toggle"><input id="showKorean" type="checkbox" checked /><span>한국어 뜻 화면에 표시</span></label>
       </section>
       <section class="list card"><div class="list-head"><h2>이 구간 10문장</h2><span>문장을 누르면 바로 이동</span></div><div id="sentenceList"></div></section>
-      <section class="tip"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3Z"/><path d="M9 22h6"/></svg><p><b>삼성 인터넷 백그라운드 재생</b><br>삼성 인터넷 → 설정 → 유용한 기능 → 백그라운드 재생을 <strong>켜기</strong>로 설정하면 실제 오디오 트랙 재생 중에는 홈 화면으로 나가도 이어서 들을 수 있습니다.</p></section>
+      <section class="tip"><svg viewBox="0 0 24 24"><path d="M12 3a7 7 0 0 0-4 12.7V19h8v-3.3A7 7 0 0 0 12 3Z"/><path d="M9 22h6"/></svg><p><b>백그라운드 재생</b><br>재생 버튼을 누르면 10문장을 하나의 실제 오디오 트랙으로 만든 뒤 재생합니다. 삼성 인터넷에서는 설정 → 유용한 기능 → 백그라운드 재생도 <strong>켜기</strong>로 두세요.</p></section>
     </main>
   </div>
   <audio id="audio" preload="auto" playsinline></audio>
-  <script src="/sentences.js?v=22"></script>
+  <script src="/sentences.js?v=23"></script>
 </body>
 </html>
